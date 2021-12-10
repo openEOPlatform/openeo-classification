@@ -72,8 +72,7 @@ def compute_statistics(base_features):
         return array_concat(
             array_concat(input_timeseries.quantiles(probabilities=[0.1, 0.5, 0.9]), input_timeseries.sd()), tsteps)
 
-    features = base_features.apply_dimension(dimension='t', target_dimension='bands', process=computeStats).apply(
-        lambda x: x.linear_scale_range(0, 250, 0, 250))
+    features = base_features.apply_dimension(dimension='t', target_dimension='bands', process=computeStats)#.apply(lambda x: x.linear_scale_range(-500, 500, -50000, 50000))
     tstep_labels = ["t" + str(6 * index) for index in range(0, 6)]
     all_bands = [band + "_" + stat for band in base_features.metadata.band_names for stat in
                  ["p10", "p50", "p90", "sd"] + tstep_labels]
@@ -116,8 +115,8 @@ def sentinel1_features(year, connection_provider = connection, provider = "Terra
     s1 = s1.apply_dimension(dimension="bands",
                             process=lambda x: array_modify(data=x, values=x.array_element(0) / x.array_element(1),
                                                            index=0))
-    s1 = s1.linear_scale_range(0, 1, 0,
-                               250)  # apply_dimension(dimension="bands", process=lambda x: lin_scale_range(x, 0, 1, 0, 250))
+    s1 = s1.rename_labels("bands", ["ratio"] + s1.metadata.band_names)
+    #s1 = s1.linear_scale_range(-500, 500, -50000, 50000)  # apply_dimension(dimension="bands", process=lambda x: lin_scale_range(x, 0, 1, 0, 250))
     s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
     s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
     return s1_dekad
