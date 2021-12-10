@@ -81,7 +81,7 @@ def compute_statistics(base_features):
     return features
 
 
-def sentinel1_features(year, connection_provider = connection, provider = "Terrascope"):
+def sentinel1_features(year, connection_provider = connection, provider = "Terrascope", relativeOrbit=None, orbitDirection = None):
     """
     Retrieves and preprocesses Sentinel-1 data into a cube with 10-daily periods (dekads).
 
@@ -97,13 +97,18 @@ def sentinel1_features(year, connection_provider = connection, provider = "Terra
         s1_id = "S1_GRD_SIGMA0_ASCENDING"
     else:
         s1_id = "SENTINEL1_GRD"
+
+    properties = {
+        #    "provider:backend": lambda v: v == "creo",
+    }
+    if relativeOrbit is not None:
+        properties["relativeOrbitNumber"] = lambda p: p == relativeOrbit
+    if orbitDirection is not None:
+        properties["orbitDirection"] = lambda p: p == orbitDirection
     s1 = c.load_collection(s1_id,
                            temporal_extent=temp_ext_s1,
                            bands=["VH", "VV"],
-                           properties={
-                               "provider:backend": lambda v: v == "creo",
-                               "orbitDirection": lambda p: p == "ASCENDING"
-                           }
+                           properties=properties
                            )
     #s1._pg.arguments['featureflags'] = temporal_partition_options
     if (provider.upper() != "TERRASCOPE"):
