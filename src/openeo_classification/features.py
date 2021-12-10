@@ -18,29 +18,37 @@ job_options = {
         "max-executors": "100"
 }
 
-def load_features(year, connection_provider = connection):
+def load_features(year, connection_provider = connection, provider = "Terrascope"):
     temp_ext_s2 = [str(year - 1) + "-09-01", str(year + 1) + "-04-30"]
     temp_ext_s1 = [str(year) + "-01-01", str(year) + "-12-31"]
 
     c = connection_provider()
-    s2 = c.load_collection("TERRASCOPE_S2_TOC_V2",
+    s2 = c.load_collection("SENTINEL2_L2A",
                                     temporal_extent=temp_ext_s2,
-                                    bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"])
+                                    bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
+                                    properties= {"provider:backend": lambda v: v == "creo"})
     s2._pg.arguments['featureflags'] = temporal_partition_options
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
-    s1 = c.load_collection("S1_GRD_SIGMA0_ASCENDING",
-                                    temporal_extent=temp_ext_s1,
-                                    bands=["VH", "VV"]
-                                    )
+    if(provider.upper() == "TERRASCOPE"):
+        s1_id = "S1_GRD_SIGMA0_ASCENDING"
+    else:
+        s1_id = "SENTINEL1_GRD"
+    s1 = c.load_collection(s1_id,
+                            temporal_extent=temp_ext_s1,
+                            bands=["VH", "VV"]
+                            )
     s1._pg.arguments['featureflags'] = temporal_partition_options
+
+    if (provider.upper() != "TERRASCOPE"):
+        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid")
 
     s1 = s1.apply_dimension(dimension="bands",
                             process=lambda x: array_modify(data=x, values=x.array_element(0) / x.array_element(1),
                                                            index=0))
     s1 = s1.linear_scale_range(0, 1, 0, 250)#apply_dimension(dimension="bands", process=lambda x: lin_scale_range(x, 0, 1, 0, 250))
 
-    idx_list = ["NDVI", "NDMI", "NDGI", "ANIR", "NDRE1", "NDRE2", "NDRE5"]
+    idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]#, "ANIR"
     s2_list = ["B06", "B12"]
 
     s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
