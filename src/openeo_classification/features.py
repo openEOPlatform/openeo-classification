@@ -20,7 +20,6 @@ job_options = {
 
 def load_features(year, connection_provider = connection, provider = "Terrascope"):
     temp_ext_s2 = [str(year - 1) + "-09-01", str(year + 1) + "-04-30"]
-    temp_ext_s1 = [str(year) + "-01-01", str(year) + "-12-31"]
 
     c = connection_provider()
     s2 = c.load_collection("SENTINEL2_L2A",
@@ -30,29 +29,12 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
     s2._pg.arguments['featureflags'] = temporal_partition_options
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
-    if(provider.upper() == "TERRASCOPE"):
-        s1_id = "S1_GRD_SIGMA0_ASCENDING"
-    else:
-        s1_id = "SENTINEL1_GRD"
-    s1 = c.load_collection(s1_id,
-                            temporal_extent=temp_ext_s1,
-                            bands=["VH", "VV"]
-                            )
-    s1._pg.arguments['featureflags'] = temporal_partition_options
-
-    if (provider.upper() != "TERRASCOPE"):
-        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid")
-
-    s1 = s1.apply_dimension(dimension="bands",
-                            process=lambda x: array_modify(data=x, values=x.array_element(0) / x.array_element(1),
-                                                           index=0))
-    s1 = s1.linear_scale_range(0, 1, 0, 250)#apply_dimension(dimension="bands", process=lambda x: lin_scale_range(x, 0, 1, 0, 250))
+    s1_dekad = sentinel1_features(year, connection_provider=connection, provider=provider)
 
     idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]#, "ANIR"
     s2_list = ["B06", "B12"]
 
-    s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
-    s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
+
     s1_dekad = s1_dekad.resample_cube_spatial(s2)
 
     index_dict = {
@@ -73,6 +55,18 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
     base_features = idx_dekad.merge_cubes(s1_dekad)
     base_features = base_features.rename_labels("bands", s2_list + idx_list + ["ratio", "VV", "VH"])
 
+    features = compute_statistics(base_features)
+    return features
+
+
+def compute_statistics(base_features):
+    """
+    Computes statistics over a datacube.
+    For correct statistics, the datacube needs to be preprocessed to contain observation at equitemporal intervals, without nodata values.
+
+    @param base_features:
+    @return:
+    """
     def computeStats(input_timeseries: ProcessBuilder):
         tsteps = list([input_timeseries.array_element(6 * index) for index in range(0, 6)])
         return array_concat(
@@ -80,9 +74,45 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 
     features = base_features.apply_dimension(dimension='t', target_dimension='bands', process=computeStats).apply(
         lambda x: x.linear_scale_range(0, 250, 0, 250))
-
     tstep_labels = ["t" + str(6 * index) for index in range(0, 6)]
     all_bands = [band + "_" + stat for band in base_features.metadata.band_names for stat in
                  ["p10", "p50", "p90", "sd"] + tstep_labels]
     features = features.rename_labels('bands', all_bands)
     return features
+
+
+def sentinel1_features(year, connection_provider = connection, provider = "Terrascope"):
+    """
+    Retrieves and preprocesses Sentinel-1 data into a cube with 10-daily periods (dekads).
+
+    @param year:
+    @param connection_provider:
+    @param provider:
+    @return:
+    """
+
+    c = connection_provider()
+    temp_ext_s1 = [str(year) + "-01-01", str(year) + "-12-31"]
+    if (provider.upper() == "TERRASCOPE"):
+        s1_id = "S1_GRD_SIGMA0_ASCENDING"
+    else:
+        s1_id = "SENTINEL1_GRD"
+    s1 = c.load_collection(s1_id,
+                           temporal_extent=temp_ext_s1,
+                           bands=["VH", "VV"],
+                           properties={
+                               "provider:backend": lambda v: v == "creo",
+                               "orbitDirection": lambda p: p == "ASCENDING"
+                           }
+                           )
+    #s1._pg.arguments['featureflags'] = temporal_partition_options
+    if (provider.upper() != "TERRASCOPE"):
+        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid")
+    s1 = s1.apply_dimension(dimension="bands",
+                            process=lambda x: array_modify(data=x, values=x.array_element(0) / x.array_element(1),
+                                                           index=0))
+    s1 = s1.linear_scale_range(0, 1, 0,
+                               250)  # apply_dimension(dimension="bands", process=lambda x: lin_scale_range(x, 0, 1, 0, 250))
+    s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
+    s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
+    return s1_dekad
