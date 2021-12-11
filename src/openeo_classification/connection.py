@@ -1,6 +1,7 @@
 import openeo
 from openeo import Connection
-from functools import cache
+from functools import cache,partial
+
 
 _default_url = "openeo.cloud"
 
@@ -23,3 +24,5 @@ def connection(url = _default_url) -> Connection:
     c.authenticate_oidc()
     return c
 
+terrascope_dev = partial(connection,"openeo-dev.vito.be")
+creo = partial(connection,"openeo.creo.vito.be")

@@ -90,13 +90,19 @@ def sentinel1_features(year, connection_provider = connection, provider = "Terra
     @return:
     """
 
+    s1 = sentinel1_inputs(year, connection_provider, provider, orbitDirection, relativeOrbit)
+    s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
+    s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
+    return s1_dekad
+
+
+def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDirection=None, relativeOrbit=None):
     c = connection_provider()
     temp_ext_s1 = [str(year) + "-01-01", str(year) + "-12-31"]
     if (provider.upper() == "TERRASCOPE"):
         s1_id = "S1_GRD_SIGMA0_ASCENDING"
     else:
         s1_id = "SENTINEL1_GRD"
-
     properties = {
         #    "provider:backend": lambda v: v == "creo",
     }
@@ -109,14 +115,18 @@ def sentinel1_features(year, connection_provider = connection, provider = "Terra
                            bands=["VH", "VV"],
                            properties=properties
                            )
-    #s1._pg.arguments['featureflags'] = temporal_partition_options
+    # s1._pg.arguments['featureflags'] = temporal_partition_options
     if (provider.upper() != "TERRASCOPE"):
-        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid")
+        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"2","tile_size":256, "otb_memory":256})
+    # Observed Ranges:
+    # VV: 0 - 0.3
+    # VH: 0 - 0.3
+    # Ratio: 0- 1
+    # TODO: shouldn't we use decibels, to normalize the ranges of VV and VH?
     s1 = s1.apply_dimension(dimension="bands",
-                            process=lambda x: array_modify(data=x, values=x.array_element(0) / x.array_element(1),
+                            process=lambda x: array_modify(data=x, values=0.3 * x.array_element(0) / x.array_element(1),
                                                            index=0))
     s1 = s1.rename_labels("bands", ["ratio"] + s1.metadata.band_names)
-    #s1 = s1.linear_scale_range(-500, 500, -50000, 50000)  # apply_dimension(dimension="bands", process=lambda x: lin_scale_range(x, 0, 1, 0, 250))
-    s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
-    s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
-    return s1_dekad
+    # scale to int16
+    s1 = s1.linear_scale_range(0, 0.3, 0,30000)
+    return s1
