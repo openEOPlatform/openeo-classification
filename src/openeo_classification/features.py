@@ -1,5 +1,5 @@
 import openeo
-from openeo.processes import array_modify, array_concat, ProcessBuilder
+from openeo.processes import array_modify, array_concat, ProcessBuilder,array_create
 from openeo.extra.spectral_indices import compute_indices, compute_and_rescale_indices
 from .connection import connection
 
@@ -119,14 +119,13 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
     if (provider.upper() != "TERRASCOPE"):
         s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"2","tile_size":256, "otb_memory":256})
     # Observed Ranges:
-    # VV: 0 - 0.3
-    # VH: 0 - 0.3
-    # Ratio: 0- 1
-    # TODO: shouldn't we use decibels, to normalize the ranges of VV and VH?
+    # VV: 0 - 0.3 - Db: -20 .. 0
+    # VH: 0 - 0.3 - Db: -30 .. -5
+    # Ratio: 0- 1    
+    #S1_GRD = S1_GRD.apply(lambda x: 10 * x.log(base=10))
     s1 = s1.apply_dimension(dimension="bands",
-                            process=lambda x: array_modify(data=x, values=0.3 * x.array_element(0) / x.array_element(1),
-                                                           index=0))
+                            process=lambda x:array_create([30.0 * x[0] / x[1],30.0+10.0 * x[0].log(base=10),30.0+10.0*x[1].log(base=10)]))
     s1 = s1.rename_labels("bands", ["ratio"] + s1.metadata.band_names)
     # scale to int16
-    s1 = s1.linear_scale_range(0, 0.3, 0,30000)
+    s1 = s1.linear_scale_range(0, 30, 0,30000)
     return s1
