@@ -3,7 +3,7 @@ from openeo import Connection
 from functools import cache,partial
 
 
-_default_url = "openeo.cloud"
+_default_url = "openeo.vito.be"
 
 def set_backend(url):
     _default_url = url

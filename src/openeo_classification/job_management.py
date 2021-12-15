@@ -1,6 +1,8 @@
 import time
-from .connection import connection
+from connection import connection
 from openeo.util import deep_get
+import os
+import pandas as pd
 
 def running_jobs(status_df):
     return status_df.loc[(status_df["status"] == "queued") | (status_df["status"] == "running")].index
@@ -23,7 +25,7 @@ def update_statuses(status_df):
     return status_df
 
 def create_or_load_job_statistics(path = "resources/training_data/job_statistics.csv"):
-    if os.path.exists(path):
+    if os.path.isfile(path):
         df = pd.read_csv(path)
     else:
         df = pd.DataFrame({
@@ -35,3 +37,4 @@ def create_or_load_job_statistics(path = "resources/training_data/job_statistics
             "duration": []
         })
         df.to_csv(path,index=False)
+    return df

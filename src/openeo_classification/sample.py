@@ -1,12 +1,12 @@
-import openeo
-from openeo.processes import array_modify, array_concat
 import pandas as pd
-from shapely.geometry import Point, Polygon, mapping
+from shapely.geometry import Point
 import json
 from explore import all_crop_codes
 import glob
 import re
 import geopandas as gpd
+import numpy as np
+import os
 
 def read_f(directory:str = "resources/reference_data/") -> pd.DataFrame:
     """
@@ -19,7 +19,7 @@ def read_f(directory:str = "resources/reference_data/") -> pd.DataFrame:
     files = []
     fns = []
     for fn in glob.glob(directory+"*"):
-        fns.append(re.search(r"\\(20.*_POLY_[0-9]{3})_samples.json", fn).group(1))
+        fns.append(re.search(r".*(20.*_POLY_[0-9]{3})_samples.json", fn).group(1))
         files.append(gpd.read_file(fn))
     print("Finished loading data.")
     return pd.concat(files), fns
@@ -43,7 +43,6 @@ def sample_polygons(crop_ids, tot_samp=2000, tot_repeat=1, input_df=None) -> pd.
     
     returns: a pandas dataframe containing tot_samp (or less, if not enough data is present) polygons of one specific crop type
     """
-    print("Starting polygon sampling for ids {}...".format(crop_ids))
     if input_df is None:
         input_df = _read_f()
     crop_df = input_df[input_df["CT"].isin(crop_ids)]
@@ -109,9 +108,10 @@ def write_to_json(df, ds_nr, ids, year, zonenumber, zoneletter, folder="resource
                }
     el = json.loads(gpd.GeoDataFrame({"ref_id":ref_id,"zone_num":zonenumber,"zone_let":zoneletter,"geometry":geom}).to_json())
     el.update(metadata)
+    if not os.path.exists(folder):
+        os.makedirs(folder)
     with open(folder+"sampleable_polygons_year"+str(year)+"_zone"+str(zonenumber)+str(zoneletter)+"_id"+str(ids[0]//100)+"00"+"_p"+str(ds_nr)+".json", 'w') as fn:
         json.dump(el, fn)
-    print("File has been stored in JSON format.")
 
 def get_crop_codes(crop_list: list, f: pd.DataFrame):
     """
@@ -121,7 +121,7 @@ def get_crop_codes(crop_list: list, f: pd.DataFrame):
     """
     print("Retrieving crop ID's of the classes you supplied, as well as the crop ID's of the other crops, in a separate list of lists.")
     gen_ids = [i for i,e in all_crop_codes.items() if e in ["Wheat", "Rye"]]
-    rel_ids = [i for i in all_crop_codes.keys() if i//100 in [j // 100 for j in gen_codes]]
+    rel_ids = [i for i in all_crop_codes.keys() if i//100 in [j // 100 for j in gen_ids]]
     non_rel_ids = [i for i in f["CT"].unique() if i not in np.hstack(rel_ids)]
     non_rel_ids.sort()
 
@@ -151,6 +151,7 @@ def sample_and_store_ids(ids, zones, years, input_df, output_folder="resources/t
                     write_to_json(df=df, ds_nr=i, ids=ids, year=year, zonenumber=zone[:2], zoneletter=zone[-1], folder=output_folder)
             else:
                 write_to_json(df=crop_year, ds_nr=0, ids=ids, year=year, zonenumber=zone[:2], zoneletter=zone[-1], folder=output_folder)
+    print("ids {} have been written to JSON".format(ids))
 
 
 def sample_and_store_polygons(crop_list, zones, years, input_df, output_folder="resources/training_data/", tot_samp_crops=500, tot_samp_other=200, tot_repeat=3):
@@ -161,7 +162,7 @@ def sample_and_store_polygons(crop_list, zones, years, input_df, output_folder="
     crop_ids, other_crop_ids = get_crop_codes(crop_list, input_df)
 
     for ids in crop_ids:
-        sample_and_store_ids(ids, zones, years, input_df, output_folder="resources/training_data/crops_of_interest/", tot_samp_crops=500, tot_repeat=3)
+        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder+"crops_of_interest/", tot_samp=tot_samp_crops, tot_repeat=tot_repeat)
     for ids in other_crop_ids:
-        sample_and_store_ids(ids, zones, years, input_df, output_folder="resources/training_data/other_crops", tot_samp_other=500, tot_repeat=3)
+        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder+"other_crops/", tot_samp=tot_samp_other, tot_repeat=tot_repeat)
     return crop_ids, other_crop_ids
