@@ -21,8 +21,13 @@ job_options = {
 def load_features(year, connection_provider = connection, provider = "Terrascope"):
     temp_ext_s2 = [str(year - 1) + "-09-01", str(year + 1) + "-04-30"]
 
+    if (provider.upper() == "TERRASCOPE"):
+        s2_id = "TERRASCOPE_S2_TOC_V2"
+    else:
+        s2_id = "SENTINEL2_L2A"
+
     c = connection_provider()
-    s2 = c.load_collection("SENTINEL2_L2A",
+    s2 = c.load_collection(s2_id,
                                     temporal_extent=temp_ext_s2,
                                     bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
                                     properties= {"provider:backend": lambda v: v == "creo"})
