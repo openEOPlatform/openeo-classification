@@ -129,3 +129,4 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
     # scale to int16
     s1 = s1.linear_scale_range(0, 30, 0,30000)
     return s1
+
