@@ -7,14 +7,15 @@ import pandas as pd
 def running_jobs(status_df):
     return status_df.loc[(status_df["status"] == "queued") | (status_df["status"] == "running")].index
 
-def update_statuses(status_df):
+def update_statuses(status_df, connection_provider=connection):
+    con = connection_provider()
     default_usage = {
         'cpu':{'value':0, 'unit':''},
         'memory':{'value':0, 'unit':''}
     }
     for i in running_jobs(status_df):
         job_id = status_df.loc[i, 'id']
-        job = connection.job(job_id).describe_job()
+        job = con.job(job_id).describe_job()
         usage = job.get('usage',default_usage)
         status_df.loc[i, "status"] = job["status"]
         status_df.loc[i, "cpu"] = f"{deep_get(usage,'cpu','value',default=0)} {deep_get(usage,'cpu','unit',default='')}"
