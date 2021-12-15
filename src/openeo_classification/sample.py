@@ -120,7 +120,7 @@ def get_crop_codes(crop_list: list, f: pd.DataFrame):
     the other classes. These can be used to sample polygons using sample_polygons.
     """
     print("Retrieving crop ID's of the classes you supplied, as well as the crop ID's of the other crops, in a separate list of lists.")
-    gen_ids = [i for i,e in all_crop_codes.items() if e in ["Wheat", "Rye"]]
+    gen_ids = [i for i,e in all_crop_codes.items() if e in crop_list]
     rel_ids = [i for i in all_crop_codes.keys() if i//100 in [j // 100 for j in gen_ids]]
     non_rel_ids = [i for i in f["CT"].unique() if i not in np.hstack(rel_ids)]
     non_rel_ids.sort()
