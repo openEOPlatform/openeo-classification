@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 from shapely.geometry import Point
 import json
@@ -110,7 +112,7 @@ def write_to_json(df, ds_nr, ids, year, zonenumber, zoneletter, folder="resource
     el.update(metadata)
     if not os.path.exists(folder):
         os.makedirs(folder)
-    with open(folder+"sampleable_polygons_year"+str(year)+"_zone"+str(zonenumber)+str(zoneletter)+"_id"+str(ids[0]//100)+"00"+"_p"+str(ds_nr)+".json", 'w') as fn:
+    with open(folder / ("sampleable_polygons_year"+str(year)+"_zone"+str(zonenumber)+str(zoneletter)+"_id"+str(ids[0]//100)+"00"+"_p"+str(ds_nr)+".json"), 'w') as fn:
         json.dump(el, fn)
 
 def get_crop_codes(crop_list: list, f: pd.DataFrame):
@@ -154,7 +156,7 @@ def sample_and_store_ids(ids, zones, years, input_df, output_folder="resources/t
     print("ids {} have been written to JSON".format(ids))
 
 
-def sample_and_store_polygons(crop_list, zones, years, input_df, output_folder="resources/training_data/", tot_samp_crops=500, tot_samp_other=200, tot_repeat=3):
+def sample_and_store_polygons(crop_list, zones, years, input_df, output_folder=Path("resources")/ "training_data", tot_samp_crops=500, tot_samp_other=200, tot_repeat=3):
     """
     Sample polygons and store them on disk
     (note that this step could be integrated in the training loop if wanted)
@@ -162,7 +164,7 @@ def sample_and_store_polygons(crop_list, zones, years, input_df, output_folder="
     crop_ids, other_crop_ids = get_crop_codes(crop_list, input_df)
 
     for ids in crop_ids:
-        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder+"crops_of_interest/", tot_samp=tot_samp_crops, tot_repeat=tot_repeat)
+        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder  / "crops_of_interest", tot_samp=tot_samp_crops, tot_repeat=tot_repeat)
     for ids in other_crop_ids:
-        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder+"other_crops/", tot_samp=tot_samp_other, tot_repeat=tot_repeat)
+        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder / "other_crops", tot_samp=tot_samp_other, tot_repeat=tot_repeat)
     return crop_ids, other_crop_ids

@@ -6,8 +6,10 @@ from openeo import DataCube, RESTJob as BatchJob
 
 
 def test_classification_features():
-    cube:DataCube = features.load_features(2019, partial(connection,"openeo.creo.vito.be"),provider="creo")
-    errors = cube.validate()
+    cube:DataCube = features.load_features(2019, partial(connection,"openeo.creo.vito.be"),provider="creodias")
+    box = [3.0,54.0,4.0,55.0]
+    errors = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).validate()
+
     print(errors)
 
 

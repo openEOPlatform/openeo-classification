@@ -1,6 +1,10 @@
+from pathlib import Path
+
 from features import *
 from sample import *
+from connection import creo
 from job_management import *
+import openeo_classification
 import os
 from explore import count_croptypes
 
@@ -11,11 +15,12 @@ input_data, fns = read_f(directory = "resources/reference_data/")
 ## Setting parameters for running jobs
 years = [2017,2018,2019]
 zones = ["31U"]
-base_path = "resources/training_data/"
+base_path = Path(openeo_classification.__file__).parent / "resources"/"training_data"
+os.makedirs(base_path,exist_ok=True)
 ## Indicate which crops you want to classify and get their respective ID's, as well as the ID's of the crops you don't want to classify (the "other" class)
 crop_list = ["Maize", "Wheat", "Barley","Soya beans", "Potatoes", "Sugar beet", "Grasses and other fodder crops"]
 ## Load or create the file that will monitor job statistics
-df = create_or_load_job_statistics(path = base_path+"job_statistics.csv")
+df = create_or_load_job_statistics(path = base_path / "job_statistics.csv")
 
 first_time = False
 
@@ -32,17 +37,17 @@ else:
 crops_of_interest = True
 if crops_of_interest:
     ids = crop_ids
-    fp = base_path+"crops_of_interest/"
+    fp = base_path / "crops_of_interest"
 else:
     ids = other_crop_ids
-    fp = base_path+"other_crops/"
+    fp = base_path / "other_crops"
 
 
 for year in years:
     features = load_features(year)
     for zone in zones:
         for i in ids:
-            for fnp in glob.glob(fp+"sampleable_polygons_year"+str(year)+"_zone"+zone+"_id"+str(i)+"*.json"):
+            for fnp in glob.glob(str(fp/ ("sampleable_polygons_year"+str(year)+"_zone"+zone+"_id"+str(i)+"*.json"))):
                 if not df.empty and fnp in df["fp"].tolist():
                     continue
                 while True:
@@ -66,9 +71,9 @@ for year in years:
                             "memory": "tbd",
                             "duration": "tbd"
                         },ignore_index=True)
-                        df.to_csv(base_path+"job_statistics.csv",index=False)
+                        df.to_csv(base_path/"job_statistics.csv",index=False)
                         break
                     else:
                         time.sleep(60)
                         df = update_statuses(df)
-                        df.to_csv(base_path+"job_statistics.csv",index=False)
+                        df.to_csv(base_path/"job_statistics.csv",index=False)
