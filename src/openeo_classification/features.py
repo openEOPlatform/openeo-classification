@@ -10,7 +10,7 @@ temporal_partition_options = {
 }
 job_options = {
         "driver-memory": "2G",
-        "driver-memoryOverhead": "1G",
+        "driver-memoryOverhead": "4G",
         "driver-cores": "2",
         "executor-memory": "2G",
         "executor-memoryOverhead": "2G",
@@ -23,14 +23,19 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 
     if (provider.upper() == "TERRASCOPE"):
         s2_id = "TERRASCOPE_S2_TOC_V2"
-    else:
+        props = {}
+    elif (provider.upper() == "SENTINELHUB"):
         s2_id = "SENTINEL2_L2A"
+        props = {}
+    elif (provider.upper() == "CREODIAS"):
+        s2_id = "SENTINEL2_L2A"
+        props = {"provider:backend": lambda v: v == "creo"}
 
     c = connection_provider()
     s2 = c.load_collection(s2_id,
                                     temporal_extent=temp_ext_s2,
                                     bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
-                                    properties= {"provider:backend": lambda v: v == "creo"})
+                                    properties= props)
     s2._pg.arguments['featureflags'] = temporal_partition_options
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
@@ -44,11 +49,11 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 
     index_dict = {
         "collection": {
-            "input_range": None,
-            "output_range": None
+            "input_range": [0,8000],
+            "output_range": [0,30000]
         },
         "indices": {
-            index: {"input_range": [0,1], "output_range": [0,250]} for index in idx_list
+            index: {"input_range": [0,1], "output_range": [0,30000]} for index in idx_list
         }
     }
 

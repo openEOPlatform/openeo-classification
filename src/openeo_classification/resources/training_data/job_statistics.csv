@@ -1,0 +1,7 @@
+fp,status,id,cpu,memory,duration
+resources/training_data/crops_of_interest\sampleable_polygons_year2017_zone31U_id1100_p0.json,error,0ce0a5b0-ce1b-4589-9ec4-0454b6f6e0e5,18832 cpu-seconds,76058595 mb-seconds,266
+resources/training_data/crops_of_interest\sampleable_polygons_year2017_zone31U_id1200_p0.json,error,45f154ff-1751-43d4-8fea-88ef309eb60b,37219 cpu-seconds,150299574 mb-seconds,510
+resources/training_data/crops_of_interest\sampleable_polygons_year2017_zone31U_id1500_p0.json,finished,efcfa735-89a3-4a28-bb12-efab094422b6,69637 cpu-seconds,283807433 mb-seconds,992
+resources/training_data/crops_of_interest\sampleable_polygons_year2017_zone31U_id1600_p0.json,finished,40600236-0677-4db0-88cb-37f5f74b9e1f,57043 cpu-seconds,232560086 mb-seconds,862
+resources/training_data/crops_of_interest\sampleable_polygons_year2017_zone31U_id5100_p0.json,queued,47224eaf-4f34-48f4-80e6-ceb2b0448b96,87 cpu-seconds,270071 mb-seconds,0
+resources/training_data/crops_of_interest\sampleable_polygons_year2017_zone31U_id4100_p0.json,queued,71f03cf2-ec2f-49f4-b7ac-b85ee143cdd5,tbd,tbd,tbd

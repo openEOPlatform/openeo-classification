@@ -49,6 +49,7 @@ for year in years:
                     if len(df[(df["status"]=="running") | (df["status"]=="queued")]) < 2:
                         with open(fnp) as fn:
                             pol = fn.readlines()[0]
+                        print(len(eval(pol)["features"]))
                         sampled_features = features.filter_spatial(json.loads(pol))
                         job = sampled_features.send_job(
                             title="Punten extraheren van sentinelhub",
