@@ -28,7 +28,7 @@ EU27 = [
 "Czechia"
 ]
 
-def LAEA_20km():
+def LAEA_20km()->gpd.GeoDataFrame:
     europe = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
     europe = europe[europe.continent=="Europe"]
     countries = europe[europe.name.isin(EU27)]

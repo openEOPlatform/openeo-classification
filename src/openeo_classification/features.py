@@ -21,15 +21,16 @@ job_options = {
 def load_features(year, connection_provider = connection, provider = "Terrascope"):
     temp_ext_s2 = [str(year - 1) + "-09-01", str(year + 1) + "-04-30"]
 
+    props = {}
+    s2_id = "SENTINEL2_L2A"
     if (provider.upper() == "TERRASCOPE"):
         s2_id = "TERRASCOPE_S2_TOC_V2"
-        props = {}
-    elif (provider.upper() == "SENTINELHUB"):
-        s2_id = "SENTINEL2_L2A"
-        props = {}
     elif (provider.upper() == "CREODIAS"):
-        s2_id = "SENTINEL2_L2A"
-        props = {"provider:backend": lambda v: v == "creo"}
+        props = {
+            "provider:backend": lambda v: v == "creodias",
+            "eo:cloud_cover": lambda v: v == 80,
+        }
+
 
     c = connection_provider()
     s2 = c.load_collection(s2_id,
@@ -131,7 +132,7 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
     # Observed Ranges:
     # VV: 0 - 0.3 - Db: -20 .. 0
     # VH: 0 - 0.3 - Db: -30 .. -5
-    # Ratio: 0- 1    
+    # Ratio: 0- 1
     #S1_GRD = S1_GRD.apply(lambda x: 10 * x.log(base=10))
     s1 = s1.apply_dimension(dimension="bands",
                             process=lambda x:array_create([30.0 * x[0] / x[1],30.0+10.0 * x[0].log(base=10),30.0+10.0*x[1].log(base=10)]))
