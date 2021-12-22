@@ -1,4 +1,7 @@
 import geopandas as gpd
+from importlib.resources import open_text
+import openeo_classification.resources.grids as grids
+import json
 
 EU27 = [
 "France",
@@ -34,4 +37,10 @@ def LAEA_20km()->gpd.GeoDataFrame:
     countries = europe[europe.name.isin(EU27)]
     df = gpd.read_file("https://artifactory.vgt.vito.be/auxdata-public/grids/LAEA-20km.gpkg",mask=countries)
 
+    return df
+
+def cropland_EU27()->gpd.GeoDataFrame:
+    f = open_text(grids,"cropland_20km.geojson")
+    features = json.load(f)
+    df = gpd.GeoDataFrame.from_features(features)
     return df

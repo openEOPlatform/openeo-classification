@@ -5,12 +5,16 @@ from openeo_classification_tests import block25_31UFS
 from openeo import DataCube, RESTJob as BatchJob
 
 
-def test_classification_features():
+def test_classification_features(some_20km_tiles_with_cropland):
     cube:DataCube = features.load_features(2019, partial(connection,"openeo.creo.vito.be"),provider="creodias")
-    box = [3.0,54.0,4.0,55.0]
-    errors = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).validate()
+    for polygon in some_20km_tiles_with_cropland:
+        box = polygon.bounds
 
-    print(errors)
+        errors = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).validate()
+        print(f"Found {len(errors)} missing products")
+        print(errors)
+
+
 
 
 def test_benchmark_creo():

@@ -16,3 +16,10 @@ def some_polygons():
 def some_20km_tiles():
     from openeo_classification.grids import LAEA_20km
     return GeometryCollection(LAEA_20km().geometry.sample(10).values)
+
+@pytest.fixture
+def some_20km_tiles_with_cropland():
+    from openeo_classification.grids import cropland_EU27
+    df = cropland_EU27()
+    sample = df[df['cropland_perc']>50].geometry.sample(10)
+    return GeometryCollection(sample.values)
