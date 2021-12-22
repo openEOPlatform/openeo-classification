@@ -1,9 +1,13 @@
+import json
+from pathlib import Path
+
 import openeo
 from openeo.processes import ProcessBuilder, array_modify, quantiles, sd, array_concat
 import pandas as pd
 import glob
 import geopandas as gpd
 import re
+from openeo_classification.connection import terrascope_dev
 
 ## Derived from metadata excel file
 all_crop_codes = {
@@ -87,3 +91,66 @@ def count_croptypes(f, fns):
 	df.sort_values("TOTAL",ascending=False)
 	print("Crop type count overview completed")
 	return df
+
+
+def grid_statistics_mean():
+	from .grids import LAEA_20km
+	# from shapely.geometry import GeometryCollection
+	# grid_df = LAEA_20km()
+	wc = terrascope_dev().load_collection("ESA_WORLDCOVER_10M_2020_V1", bands="MAP",
+										  temporal_extent=["2020-12-30", "2021-01-01"])
+
+	statsfile = "cropland_mean.json"
+	if (not Path(statsfile).exists()):
+
+		(wc.band("MAP") == 40).polygonal_mean_timeseries(
+			"https://artifactory.vgt.vito.be/auxdata-public/grids/LAEA-20km-EU27.geojson").execute_batch(
+			statsfile)
+
+	with open(statsfile,'r') as f:
+		mean_list = json.load(f)["2020-12-31T00:00:00Z"]
+		mean_list = [bands[0] if len(bands) > 0 else 0.0 for bands in mean_list]
+
+	import geopandas as gpd
+	grid_df = gpd.read_file("LAEA-20km-EU27.geojson")  # https://artifactory.vgt.vito.be/auxdata-public/grids/
+	grid_df["cropland_perc"] = mean_list
+	grid_df["cropland_perc"]=100.0*grid_df["cropland_perc"]
+	grid_df.to_file("cropland_20km.geojson", driver='GeoJSON')
+
+def grid_statistics():
+	from .grids import LAEA_20km
+	#from shapely.geometry import GeometryCollection
+	#grid_df = LAEA_20km()
+	wc = terrascope_dev().load_collection("ESA_WORLDCOVER_10M_2020_V1",bands="MAP",temporal_extent=["2020-12-30","2021-01-01"])
+
+	statsfile = "cropland_mean.json"
+	if(not Path(statsfile).exists()):
+		#wc.aggregate_spatial("https://artifactory.vgt.vito.be/auxdata-public/grids/LAEA-20km-EU27.geojson",reducer='histogram').execute_batch(
+		#	statsfile)
+		(wc.band("MAP") == 40).polygonal_mean_timeseries("https://artifactory.vgt.vito.be/auxdata-public/grids/LAEA-20km-EU27.geojson").execute_batch(
+			statsfile)
+	with open(statsfile,'r') as f:
+		histogram_list = json.load(f)["2020-12-31T00:00:00Z"]
+		counts = [ len(bands) for bands in histogram_list]
+		histogram_list = [ bands[0] if len(bands)>0 else {} for bands in histogram_list]
+
+	totalvalidcells = sum(counts)
+	print(totalvalidcells)
+
+	import geopandas as gpd
+	grid_df = gpd.read_file("LAEA-20km-EU27.geojson")#https://artifactory.vgt.vito.be/auxdata-public/grids/
+
+	grassland_count = [h.get("30.0",0) for h in histogram_list]
+	cropland_count = [h.get("40.0",0) for h in histogram_list]
+	water_count = [h.get("80.0",0) for h in histogram_list]
+
+	total_pixels = 2000*2000
+	grid_df["cropland"] = cropland_count
+	grid_df["grassland"] = grassland_count
+	grid_df["water"] = water_count
+
+
+	grid_df["cropland_perc"]=100.0*grid_df["cropland"]/total_pixels
+	grid_df.to_file("statistics_20km.geojson", driver='GeoJSON')
+	#grid_df.plot(column="cropland_perc")
+
