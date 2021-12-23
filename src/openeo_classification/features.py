@@ -62,7 +62,7 @@ def sentinel2_features(year, connection_provider, provider):
     if(provider.lower()=="terrascope"):
         wc = c.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands="MAP",
                                           temporal_extent=["2020-12-30", "2021-01-01"])
-        s2 = s2.mask(wc.band("MAP")!=40)
+        s2 = s2.mask((wc.band("MAP")!=40).resample_cube_spatial(s2))
 
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
