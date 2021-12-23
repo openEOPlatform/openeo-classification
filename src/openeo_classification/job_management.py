@@ -1,8 +1,61 @@
 import time
-from connection import connection
+from pathlib import Path
+
+import requests
+
+from openeo_classification.connection import connection,terrascope_dev
 from openeo.util import deep_get
 import os
 import pandas as pd
+
+def run_jobs(df:pd.DataFrame,start_job, outputFile:Path):
+    """
+    Runs jobs, specified in a dataframe, and tracks parameters.
+
+    @param df: Job dataframe
+    @param start_job: A callback which will be invoked with the row of the dataframe for which a job should be started.
+    @param outputFile: A file on disk to track job statuses.
+    @return:
+    """
+
+    df["status"]="not_started"
+    df["id"]="None"
+    df["cpu"]=0
+    df["memory"]=0
+    df["duration"]=0
+
+    if outputFile.is_file():
+        df = pd.read_csv(outputFile)
+    else:
+        df.to_csv(outputFile,index=False)
+
+
+    while len(df[(df["status"] != "finished")])>0:
+        try:
+            jobs_to_run = df[df.status == "not_started"]
+            df = update_statuses(df, terrascope_dev)
+            df.to_csv(outputFile, index=False)
+            if jobs_to_run.empty:
+                time.sleep(60)
+                continue
+
+            if len(df[(df["status"] == "running") | (df["status"] == "queued")]) < 2:
+
+                next_job = jobs_to_run.iloc[0]
+                job = start_job(next_job)
+                next_job["status"] = job.status()
+                next_job["id"] = job.job_id
+                print(next_job)
+                df.loc[next_job.name] = next_job
+
+                df.to_csv(outputFile, index=False)
+            else:
+                time.sleep(60)
+
+        except requests.exceptions.ConnectionError as e:
+            print(e)
+
+
 
 def running_jobs(status_df):
     return status_df.loc[(status_df["status"] == "queued") | (status_df["status"] == "running")].index

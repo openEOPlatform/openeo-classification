@@ -1,9 +1,11 @@
+from pathlib import Path
+
 from openeo_classification import features
 from openeo_classification.connection import connection, terrascope_dev, creo
 from functools import partial
 from openeo_classification_tests import block25_31UFS
 from openeo import DataCube, RESTJob as BatchJob
-
+from openeo_classification.job_management import run_jobs
 
 def test_classification_features(some_20km_tiles_with_cropland):
     cube:DataCube = features.load_features(2019, partial(connection,"openeo.creo.vito.be"),provider="creodias")
@@ -60,6 +62,36 @@ def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles):
     for polygon in some_20km_tiles:
         box = polygon.bounds
         stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).execute_batch("tile_20km.tiff",title="Sentinel-2 features",job_options=job_options)
+
+def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
+    s2_cube, idx_list, s2_list = features.sentinel2_features(2020, terrascope_dev, provider="terrascope")
+    stats = features.compute_statistics(s2_cube).linear_scale_range(0,30000,0,30000)
+
+    job_options = {
+        "driver-memory": "2G",
+        "driver-memoryOverhead": "2G",
+        "driver-cores": "1",
+        "executor-memory": "1G",
+        "executor-memoryOverhead": "1G",
+        "executor-cores": "2"
+    }
+
+    def run(row):
+        box = row.geometry.bounds
+        cropland = row.cropland_perc
+        job = stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).send_job(out_format="GTiff",
+                                                                                              title=f"Croptype Sentinel-2 features {cropland}",
+                                                                                               description=f"Sentinel-2 features for croptype detection.",
+                                                                                              job_options=job_options)
+        job.start_job()
+        return job
+
+
+    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinel2_terrascope_masked.csv"))
+
+    #for polygon in some_20km_tiles_in_belgium:
+        #box = polygon.bounds
+        #stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).execute_batch("tile_20km.tiff",title="Sentinel-2 features",job_options=job_options)
 
 def test_benchmark_creo_sentinel1_samples(some_polygons):
     """

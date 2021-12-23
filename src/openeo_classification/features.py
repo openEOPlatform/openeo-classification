@@ -10,7 +10,7 @@ temporal_partition_options = {
 }
 
 creo_partition_options = {
-        "indexreduction": 2,
+        "indexreduction": 1,
         "temporalresolution": "ByDay",
         "tilesize": 256
 }
@@ -42,6 +42,9 @@ def sentinel2_features(year, connection_provider, provider):
     s2_id = "SENTINEL2_L2A"
     if (provider.upper() == "TERRASCOPE"):
         s2_id = "TERRASCOPE_S2_TOC_V2"
+        props = {
+            "eo:cloud_cover": lambda v: v == 80
+        }
     elif (provider.upper() == "CREODIAS"):
         props = {
             "provider:backend": lambda v: v == "creodias",
@@ -56,7 +59,14 @@ def sentinel2_features(year, connection_provider, provider):
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
 
+    if(provider.lower()=="terrascope"):
+        wc = c.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands="MAP",
+                                          temporal_extent=["2020-12-30", "2021-01-01"])
+        s2 = s2.mask(wc.band("MAP")!=40)
+
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
+
+
     idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]  # , "ANIR"
     s2_list = ["B06", "B12"]
     index_dict = {
@@ -84,12 +94,12 @@ def compute_statistics(base_features):
     @return:
     """
     def computeStats(input_timeseries: ProcessBuilder):
-        tsteps = list([input_timeseries.array_element(6 * index) for index in range(0, 6)])
+        tsteps = list([input_timeseries.array_element(4 * index) for index in range(0, 6)])
         return array_concat(
             array_concat(input_timeseries.quantiles(probabilities=[0.1, 0.5, 0.9]), input_timeseries.sd()), tsteps)
 
     features = base_features.apply_dimension(dimension='t', target_dimension='bands', process=computeStats)#.apply(lambda x: x.linear_scale_range(-500, 500, -50000, 50000))
-    tstep_labels = ["t" + str(6 * index) for index in range(0, 6)]
+    tstep_labels = ["t" + str(4 * index) for index in range(0, 6)]
     all_bands = [band + "_" + stat for band in base_features.metadata.band_names for stat in
                  ["p10", "p50", "p90", "sd"] + tstep_labels]
     features = features.rename_labels('bands', all_bands)
