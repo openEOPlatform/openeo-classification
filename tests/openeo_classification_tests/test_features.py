@@ -43,6 +43,24 @@ def test_benchmark_creo_20km_tile(some_20km_tiles):
         box = polygon.bounds
         cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).download("tile_20km.tiff")
 
+def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles):
+    s2_cube, idx_list, s2_list = features.sentinel2_features(2020, creo, provider="creodias")
+    stats = features.compute_statistics(s2_cube)
+
+    job_options = {
+        "driver-memory": "2G",
+        "driver-memoryOverhead": "2G",
+        "driver-cores": "1",
+        "executor-memory": "1G",
+        "executor-memoryOverhead": "3G",
+        "executor-cores": "2",
+        "max-executors": "10"
+    }
+
+    for polygon in some_20km_tiles:
+        box = polygon.bounds
+        stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).execute_batch("tile_20km.tiff",title="Sentinel-2 features",job_options=job_options)
+
 def test_benchmark_creo_sentinel1_samples(some_polygons):
     """
     NOTE: for 2021, it seems that a large number of GRD products are missing on CreoDIAS!!
@@ -55,10 +73,10 @@ def test_benchmark_creo_sentinel1_samples(some_polygons):
         "driver-memory": "1G",
         "driver-memoryOverhead": "1G",
         "driver-cores": "1",
-        "executor-memory": "2G",
-        "executor-memoryOverhead": "1G",
+        "executor-memory": "1G",
+        "executor-memoryOverhead": "3G",
         "executor-cores": "1",
-        "max-executors": "3"
+        "max-executors": "8"
     }
 
     stats.filter_spatial(some_polygons).execute_batch(title="Punten extraheren Sentinel-1",

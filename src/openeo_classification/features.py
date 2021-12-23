@@ -8,6 +8,12 @@ temporal_partition_options = {
         "temporalresolution": "None",
         "tilesize": 256
 }
+
+creo_partition_options = {
+        "indexreduction": 2,
+        "temporalresolution": "ByDay",
+        "tilesize": 256
+}
 job_options = {
         "driver-memory": "2G",
         "driver-memoryOverhead": "4G",
@@ -19,8 +25,19 @@ job_options = {
 }
 
 def load_features(year, connection_provider = connection, provider = "Terrascope"):
-    temp_ext_s2 = [str(year - 1) + "-09-01", str(year + 1) + "-04-30"]
+    idx_dekad, idx_list, s2_list = sentinel2_features(year, connection_provider, provider)
 
+    s1_dekad = sentinel1_features(year, connection_provider=connection, provider=provider)
+    s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
+    base_features = idx_dekad.merge_cubes(s1_dekad)
+    base_features = base_features.rename_labels("bands", s2_list + idx_list + ["ratio", "VV", "VH"])
+
+    features = compute_statistics(base_features)
+    return features
+
+
+def sentinel2_features(year, connection_provider, provider):
+    temp_ext_s2 = [str(year - 1) + "-10-01", str(year) + "-11-01"]
     props = {}
     s2_id = "SENTINEL2_L2A"
     if (provider.upper() == "TERRASCOPE"):
@@ -30,44 +47,32 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
             "provider:backend": lambda v: v == "creodias",
             "eo:cloud_cover": lambda v: v == 80,
         }
-
-
     c = connection_provider()
     s2 = c.load_collection(s2_id,
-                                    temporal_extent=temp_ext_s2,
-                                    bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
-                                    properties= props)
-    s2._pg.arguments['featureflags'] = temporal_partition_options
+                           temporal_extent=temp_ext_s2,
+                           bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
+                           properties=props)
+
+    if(provider.lower()=="creodias"):
+        s2._pg.arguments['featureflags'] = creo_partition_options
+
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
-
-    s1_dekad = sentinel1_features(year, connection_provider=connection, provider=provider)
-
-    idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]#, "ANIR"
+    idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]  # , "ANIR"
     s2_list = ["B06", "B12"]
-
-
-    s1_dekad = s1_dekad.resample_cube_spatial(s2)
-
     index_dict = {
         "collection": {
-            "input_range": [0,8000],
-            "output_range": [0,30000]
+            "input_range": [0, 8000],
+            "output_range": [0, 30000]
         },
         "indices": {
-            index: {"input_range": [0,1], "output_range": [0,30000]} for index in idx_list
+            index: {"input_range": [0, 1], "output_range": [0, 30000]} for index in idx_list
         }
     }
-
     indices = compute_and_rescale_indices(s2, index_dict, True).filter_bands(s2_list + idx_list)
     idx_dekad = indices.aggregate_temporal_period(period="dekad", reducer="mean")
     idx_dekad = idx_dekad.apply_dimension(dimension="t", process="array_interpolate_linear").filter_temporal(
         [str(year) + "-01-01", str(year) + "-12-31"])
-
-    base_features = idx_dekad.merge_cubes(s1_dekad)
-    base_features = base_features.rename_labels("bands", s2_list + idx_list + ["ratio", "VV", "VH"])
-
-    features = compute_statistics(base_features)
-    return features
+    return idx_dekad, idx_list, s2_list
 
 
 def compute_statistics(base_features):
@@ -109,7 +114,7 @@ def sentinel1_features(year, connection_provider = connection, provider = "Terra
 
 def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDirection=None, relativeOrbit=None):
     c = connection_provider()
-    temp_ext_s1 = [str(year) + "-01-01", str(year) + "-12-31"]
+    temp_ext_s1 = [str(year-1) + "-11-01", str(year) + "-11-01"]
     if (provider.upper() == "TERRASCOPE"):
         s1_id = "S1_GRD_SIGMA0_ASCENDING"
     else:
