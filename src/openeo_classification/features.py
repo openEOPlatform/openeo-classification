@@ -10,7 +10,7 @@ temporal_partition_options = {
 }
 
 creo_partition_options = {
-        "indexreduction": 1,
+        "indexreduction": 3,
         "temporalresolution": "ByDay",
         "tilesize": 256
 }
@@ -32,7 +32,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
     base_features = idx_dekad.merge_cubes(s1_dekad)
     base_features = base_features.rename_labels("bands", s2_list + idx_list + ["ratio", "VV", "VH"])
 
-    features = compute_statistics(base_features)
+    features = compute_statistics(base_features).linear_scale_range(0,30000,0,30000)
     return features
 
 
@@ -59,10 +59,7 @@ def sentinel2_features(year, connection_provider, provider):
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
 
-    if(provider.lower()=="terrascope"):
-        wc = c.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands=["MAP"],
-                                          temporal_extent=["2020-12-30", "2021-01-01"])
-        s2 = s2.mask((wc.band("MAP")!=40).min_time().resample_cube_spatial(s2))
+    s2 = cropland_mask(s2, c, provider)
 
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
@@ -83,6 +80,14 @@ def sentinel2_features(year, connection_provider, provider):
     idx_dekad = idx_dekad.apply_dimension(dimension="t", process="array_interpolate_linear").filter_temporal(
         [str(year) + "-01-01", str(year) + "-12-31"])
     return idx_dekad, idx_list, s2_list
+
+
+def cropland_mask(cube_to_mask, connection, provider):
+    if (provider.lower() == "terrascope"):
+        wc = connection.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands=["MAP"],
+                                        temporal_extent=["2020-12-30", "2021-01-01"])
+        cube_to_mask = cube_to_mask.mask((wc.band("MAP") != 40).min_time().resample_cube_spatial(cube_to_mask))
+    return cube_to_mask
 
 
 def compute_statistics(base_features):
@@ -144,6 +149,8 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
     # s1._pg.arguments['featureflags'] = temporal_partition_options
     if (provider.upper() != "TERRASCOPE"):
         s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"2","tile_size":256, "otb_memory":256})
+
+    s1 = cropland_mask(s1, c, provider)
     # Observed Ranges:
     # VV: 0 - 0.3 - Db: -20 .. 0
     # VH: 0 - 0.3 - Db: -30 .. -5

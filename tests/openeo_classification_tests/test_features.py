@@ -45,21 +45,21 @@ def test_benchmark_creo_20km_tile(some_20km_tiles):
         box = polygon.bounds
         cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).download("tile_20km.tiff")
 
-def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles):
+def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     s2_cube, idx_list, s2_list = features.sentinel2_features(2020, creo, provider="creodias")
-    stats = features.compute_statistics(s2_cube)
+    stats = features.compute_statistics(s2_cube).linear_scale_range(0,30000,0,30000)
 
     job_options = {
-        "driver-memory": "2G",
+        "driver-memory": "3G",
         "driver-memoryOverhead": "2G",
         "driver-cores": "1",
         "executor-memory": "1G",
-        "executor-memoryOverhead": "3G",
+        "executor-memoryOverhead": "4G",
         "executor-cores": "2",
         "max-executors": "10"
     }
 
-    for polygon in some_20km_tiles:
+    for polygon in some_20km_tiles_in_belgium:
         box = polygon.bounds
         stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).execute_batch("tile_20km.tiff",title="Sentinel-2 features",job_options=job_options)
 
@@ -92,6 +92,33 @@ def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     #for polygon in some_20km_tiles_in_belgium:
         #box = polygon.bounds
         #stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).execute_batch("tile_20km.tiff",title="Sentinel-2 features",job_options=job_options)
+
+def test_benchmark_terrascope_20km_tile_features(some_20km_tiles_in_belgium):
+    cube = features.load_features(2020, terrascope_dev, provider="terrascope")
+
+
+    job_options = {
+        "driver-memory": "2G",
+        "driver-memoryOverhead": "2G",
+        "driver-cores": "1",
+        "executor-memory": "2G",
+        "executor-memoryOverhead": "1G",
+        "executor-cores": "2",
+        "max-executors": "20"
+    }
+
+    def run(row):
+        box = row.geometry.bounds
+        cropland = row.cropland_perc
+        job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).send_job(out_format="GTiff",
+                                                                                              title=f"Croptype features {cropland:.1f}",
+                                                                                               description=f"Features for croptype detection.",
+                                                                                              job_options=job_options)
+        job.start_job()
+        return job
+
+
+    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_terrascope_masked.csv"))
 
 def test_benchmark_creo_sentinel1_samples(some_polygons):
     """
