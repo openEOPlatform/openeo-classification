@@ -99,20 +99,20 @@ def _extract_point_from_polygon(shp):
         return Point(x,y).buffer(10**-10)
 
 
-def write_to_json(df, ds_nr, ids, year, zonenumber, zoneletter, folder="resources/training_data/"):
+def write_to_json(df, ds_nr, ids, year, zonenumber, folder="resources/training_data/"):
     geom = np.asarray(df["sample_polygon"]).tolist()
     ref_id = df['ref_id']
     metadata = {
-                    "ids": str(ids), 
+                    "ids": str(ids),
                     "year": str(year),
                     "title": str(ids[0]),
                     "name": str(ids[0])
                }
-    el = json.loads(gpd.GeoDataFrame({"ref_id":ref_id,"zone_num":zonenumber,"zone_let":zoneletter,"geometry":geom}).to_json())
+    el = json.loads(gpd.GeoDataFrame({"ref_id":ref_id,"zone_num":zonenumber,"geometry":geom}).to_json())
     el.update(metadata)
     if not os.path.exists(folder):
         os.makedirs(folder)
-    with open(folder / ("sampleable_polygons_year"+str(year)+"_zone"+str(zonenumber)+str(zoneletter)+"_id"+str(ids[0]//100)+"00"+"_p"+str(ds_nr)+".json"), 'w') as fn:
+    with open(folder / ("sampleable_polygons_year"+str(year)+"_zone"+str(zonenumber)+"_id"+str(ids[0]//100)+"00"+"_p"+str(ds_nr)+".json"), 'w') as fn:
         json.dump(el, fn)
 
 def get_crop_codes(crop_list: list, f: pd.DataFrame):
@@ -135,24 +135,30 @@ def get_crop_codes(crop_list: list, f: pd.DataFrame):
     return rel_final, non_rel_final
 
 
+def store_ids(ids, zone, years, crop_df, output_folder):
+    for year in years:
+        crop_year = crop_df[crop_df['validityTi'] == str(year)+"-06-01"]
+        if len(crop_year) == 0:
+            continue
+        split_amount = len(crop_year) // 150
+        if split_amount > 0:
+            dfs = np.array_split(crop_year, split_amount+1)
+            for i,df in enumerate(dfs):
+                write_to_json(df=df, ds_nr=i, ids=ids, year=year, zonenumber=zone, folder=output_folder)
+        else:
+            write_to_json(df=crop_year, ds_nr=0, ids=ids, year=year, zonenumber=zone, folder=output_folder)
 
-def sample_and_store_ids(ids, zones, years, input_df, output_folder="resources/training_data/", tot_samp=500, tot_repeat=3):
+
+def sample_and_store_ids(ids, zones, years, input_df, output_folder, tot_samp=500, tot_repeat=3):
     print("Starting to sample polygons for ids {}".format(ids))
     crop = sample_polygons(crop_ids=ids, tot_samp=tot_samp, tot_repeat=tot_repeat, input_df=input_df)
     crop["sample_polygon"] = crop["geometry"].apply(_extract_point_from_polygon)
+    crop_belgium = crop[crop["ref_id"].str.slice(4,8) == "_BE_"]
+    crop_rest = crop[crop["ref_id"].str.slice(4,8) != "_BE_"]
+    store_ids(ids, "31", years, crop_belgium, output_folder / "terrascope")
     for zone in zones:
-        crop_zone = crop.query('zonenumber=='+zone[:2]+' & zoneletter=="'+zone[-1]+'" ')
-        for year in years:
-            crop_year = crop_zone[crop_zone['validityTi'] == str(year)+"-06-01"]
-            if len(crop_year) == 0:
-                continue
-            split_amount = len(crop_year) // 150
-            if split_amount > 0:
-                dfs = np.array_split(crop_year, split_amount+1)
-                for i,df in enumerate(dfs):
-                    write_to_json(df=df, ds_nr=i, ids=ids, year=year, zonenumber=zone[:2], zoneletter=zone[-1], folder=output_folder)
-            else:
-                write_to_json(df=crop_year, ds_nr=0, ids=ids, year=year, zonenumber=zone[:2], zoneletter=zone[-1], folder=output_folder)
+        crop_zone = crop_rest.query('zonenumber=='+zone)
+        store_ids(ids, zone, years, crop_zone, output_folder / "sentinelhub")
     print("ids {} have been written to JSON".format(ids))
 
 

@@ -67,7 +67,7 @@ def sentinel2_features(year, connection_provider, provider):
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
 
-    idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]  # , "ANIR"
+    idx_list = ["NDVI", "NDMI", "NDGI", "ANIR", "NDRE1", "NDRE2", "NDRE5"]
     s2_list = ["B06", "B12"]
     index_dict = {
         "collection": {
@@ -83,6 +83,22 @@ def sentinel2_features(year, connection_provider, provider):
     idx_dekad = idx_dekad.apply_dimension(dimension="t", process="array_interpolate_linear").filter_temporal(
         [str(year) + "-01-01", str(year) + "-12-31"])
     return idx_dekad, idx_list, s2_list
+
+
+def sentinel1_features(year, connection_provider = connection, provider = "Terrascope", relativeOrbit=None, orbitDirection = None):
+    """
+    Retrieves and preprocesses Sentinel-1 data into a cube with 10-daily periods (dekads).
+
+    @param year:
+    @param connection_provider:
+    @param provider:
+    @return:
+    """
+
+    s1 = sentinel1_inputs(year, connection_provider, provider, orbitDirection, relativeOrbit)
+    s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
+    s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
+    return s1_dekad
 
 
 def compute_statistics(base_features):
@@ -104,22 +120,6 @@ def compute_statistics(base_features):
                  ["p10", "p50", "p90", "sd"] + tstep_labels]
     features = features.rename_labels('bands', all_bands)
     return features
-
-
-def sentinel1_features(year, connection_provider = connection, provider = "Terrascope", relativeOrbit=None, orbitDirection = None):
-    """
-    Retrieves and preprocesses Sentinel-1 data into a cube with 10-daily periods (dekads).
-
-    @param year:
-    @param connection_provider:
-    @param provider:
-    @return:
-    """
-
-    s1 = sentinel1_inputs(year, connection_provider, provider, orbitDirection, relativeOrbit)
-    s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
-    s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
-    return s1_dekad
 
 
 def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDirection=None, relativeOrbit=None):
