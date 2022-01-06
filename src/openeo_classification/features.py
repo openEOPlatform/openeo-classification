@@ -141,6 +141,10 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
         properties["relativeOrbitNumber"] = lambda p: p == relativeOrbit
     if orbitDirection is not None:
         properties["orbitDirection"] = lambda p: p == orbitDirection
+
+    if provider.upper()=="SENTINELHUB":
+        properties["polarization"] = lambda p: p == "DV"
+
     s1 = c.load_collection(s1_id,
                            temporal_extent=temp_ext_s1,
                            bands=["VH", "VV"],
