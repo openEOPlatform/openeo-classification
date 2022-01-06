@@ -55,13 +55,22 @@ def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
         "driver-cores": "1",
         "executor-memory": "1G",
         "executor-memoryOverhead": "4G",
-        "executor-cores": "2",
+        "executor-cores": "3",
         "max-executors": "10"
     }
 
-    for polygon in some_20km_tiles_in_belgium:
-        box = polygon.bounds
-        stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).execute_batch("tile_20km.tiff",title="Sentinel-2 features",job_options=job_options)
+    def run(row):
+        box = row.geometry.bounds
+        cropland = row.cropland_perc
+        job = stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).send_job(out_format="GTiff",
+                                                                                              title=f"Croptype Sentinel-2 features {cropland:.1f}",
+                                                                                               description=f"Sentinel-2 features for croptype detection.",
+                                                                                              job_options=job_options)
+        job.start_job()
+        return job
+
+
+    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinel2_creo.csv"),parallel_jobs=1,connection_provider=creo)
 
 def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     s2_cube, idx_list, s2_list = features.sentinel2_features(2020, terrascope_dev, provider="terrascope")
@@ -80,7 +89,7 @@ def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
         box = row.geometry.bounds
         cropland = row.cropland_perc
         job = stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).send_job(out_format="GTiff",
-                                                                                              title=f"Croptype Sentinel-2 features {cropland}",
+                                                                                              title=f"Croptype Sentinel-2 features {cropland:.1f}",
                                                                                                description=f"Sentinel-2 features for croptype detection.",
                                                                                               job_options=job_options)
         job.start_job()
