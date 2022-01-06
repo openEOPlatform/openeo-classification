@@ -41,7 +41,8 @@ def some_20km_tiles_in_belgium():
 
     df = df.sjoin(belgium, how="inner")
     import pandas as pd
-    cut = pd.qcut(df.cropland_perc,5 , retbins=False)
+    cut = pd.qcut(df.cropland_perc,10 , retbins=False)
     df['bins'] = cut
-    sample = df.drop_duplicates('bins')
+    bins = df.groupby(['bins'])
+    sample = df[df.cropland_perc.isin(bins.cropland_perc.quantile(interpolation='nearest'))]
     return sample

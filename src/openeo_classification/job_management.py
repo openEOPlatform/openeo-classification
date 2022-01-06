@@ -7,8 +7,9 @@ from openeo_classification.connection import connection,terrascope_dev
 from openeo.util import deep_get
 import os
 import pandas as pd
+import geopandas as gpd
 
-def run_jobs(df:pd.DataFrame,start_job, outputFile:Path):
+def run_jobs(df:pd.DataFrame,start_job, outputFile:Path, parallel_jobs=2,connection_provider=terrascope_dev):
     """
     Runs jobs, specified in a dataframe, and tracks parameters.
 
@@ -26,6 +27,7 @@ def run_jobs(df:pd.DataFrame,start_job, outputFile:Path):
 
     if outputFile.is_file():
         df = pd.read_csv(outputFile)
+        df['geometry'] = gpd.GeoSeries.from_wkt(df['geometry'])
     else:
         df.to_csv(outputFile,index=False)
 
@@ -33,13 +35,13 @@ def run_jobs(df:pd.DataFrame,start_job, outputFile:Path):
     while len(df[(df["status"] != "finished")])>0:
         try:
             jobs_to_run = df[df.status == "not_started"]
-            df = update_statuses(df, terrascope_dev)
+            df = update_statuses(df, connection_provider)
             df.to_csv(outputFile, index=False)
             if jobs_to_run.empty:
                 time.sleep(60)
                 continue
 
-            if len(df[(df["status"] == "running") | (df["status"] == "queued")]) < 2:
+            if len(df[(df["status"] == "running") | (df["status"] == "queued") | (df["status"] == "created") ]) < parallel_jobs:
 
                 next_job = jobs_to_run.iloc[0]
                 job = start_job(next_job)
@@ -58,7 +60,7 @@ def run_jobs(df:pd.DataFrame,start_job, outputFile:Path):
 
 
 def running_jobs(status_df):
-    return status_df.loc[(status_df["status"] == "queued") | (status_df["status"] == "running")].index
+    return status_df.loc[(status_df["status"] == "queued") | (status_df["status"] == "running") | (status_df["status"] == "created")].index
 
 def update_statuses(status_df, connection_provider=connection):
     con = connection_provider()
