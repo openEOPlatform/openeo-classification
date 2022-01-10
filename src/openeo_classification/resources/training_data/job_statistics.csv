@@ -1,5 +1,3 @@
 fp,status,id,cpu,memory,duration,source
-c:\users\driesseb\dev\openeo-classification\src\openeo_classification\resources\training_data\crops_of_interest\terrascope\sampleable_polygons_year2017_zone31_id1200_p0.json,finished,c4c2a432-7aa3-443c-be2d-3d55e9c408a1,56867 cpu-seconds,231802537 mb-seconds,757,tbd
-c:\users\driesseb\dev\openeo-classification\src\openeo_classification\resources\training_data\crops_of_interest\terrascope\sampleable_polygons_year2017_zone31_id8100_p0.json,finished,d869ea7e-ac48-44aa-8007-fab8f1fa9c9b,36580 cpu-seconds,148056729 mb-seconds,998,tbd
-c:\users\driesseb\dev\openeo-classification\src\openeo_classification\resources\training_data\crops_of_interest\terrascope\sampleable_polygons_year2017_zone31_id1100_p0.json,queued,82e86e09-6209-4e67-a905-444aaaa58825,tbd,tbd,tbd,tbd
-c:\users\driesseb\dev\openeo-classification\src\openeo_classification\resources\training_data\crops_of_interest\terrascope\sampleable_polygons_year2017_zone31_id1500_p0.json,queued,ff79958b-e22b-4cad-837a-6c72fbab644c,tbd,tbd,tbd,tbd
+c:\users\driesseb\dev\openeo-classification\src\openeo_classification\resources\training_data\other_crops\terrascope\sampleable_polygons_year2017_zone31_id1120_p0.json,running,e0829dad-38d9-4b74-a62a-afd85fc4812e,531 cpu-seconds,1890502 mb-seconds,0,tbd
+c:\users\driesseb\dev\openeo-classification\src\openeo_classification\resources\training_data\other_crops\terrascope\sampleable_polygons_year2017_zone31_id1520_p0.json,running,c26ccd24-af24-46c1-8950-398b25a8071d,489 cpu-seconds,1809179 mb-seconds,0,tbd
