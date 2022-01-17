@@ -17,47 +17,69 @@ def test_classification_features(some_20km_tiles_with_cropland):
         print(errors)
 
 
+creo_job_options = {
+        "driver-memory": "4G",
+        "driver-memoryOverhead": "2G",
+        "driver-cores": "1",
+        "executor-memory": "1G",
+        "executor-memoryOverhead": "4500m",
+        "executor-cores": "3",
+        "executor-request-cores": "400m",
+        "max-executors": "40"
+    }
+
+def test_benchmark_creo(some_20km_tiles_in_belgium):
+    #cube = features.load_features(2021, creo,provider="creodias")
+    s2_cube, idx_list, s2_list = features.sentinel2_features(2020, creo, provider="creodias")
+    cube = features.compute_statistics(s2_cube).linear_scale_range(0, 30000, 0, 30000)
+
+    for index,tile in some_20km_tiles_in_belgium.iterrows():
+        box = tile['geometry'].bounds
+        cube.filter_bbox(west=box[0],south=box[1],east=box[2],north=box[3]).download("block25.tiff")
 
 
-def test_benchmark_creo():
-    cube = features.load_features(2021, creo,provider="creodias")
-
-    box = block25_31UFS
-    cube.filter_bbox(west=box[0],south=box[1],east=box[2],north=box[3],crs='EPSG:32631').download("block25.tiff")
-
-
-def test_benchmark_creo_sentinel1():
+def test_benchmark_creo_sentinel1(some_20km_tiles_in_belgium):
     """
     NOTE: for 2021, it seems that a large number of GRD products are missing on CreoDIAS!!
     @return:
     """
-    cube = features.sentinel1_features(2020, creo,provider="creodias",orbitDirection="ascending",relativeOrbit=88)
+    cube = features.sentinel1_features(2020, creo,provider="creodias",relativeOrbit=88)
     stats = features.compute_statistics(cube)
 
-    box = block25_31UFS
-    stats.filter_bbox(west=box[0],south=box[1],east=box[2],north=box[3],crs='EPSG:32631').download("block25_creo_int16_2020.nc")
-    #job.download_results("/tmp/")
+    def run(row):
+        box = row.geometry.bounds
+        cropland = row.cropland_perc
+        job = stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).send_job(out_format="GTiff",
+                                                                                              title=f"Croptype Sentinel-1 features {cropland:.1f}",
+                                                                                               description=f"Sentinel-1 features for croptype detection.",
+                                                                                              job_options=creo_job_options)
+        job.start_job()
+        return job
 
-def test_benchmark_creo_20km_tile(some_20km_tiles):
+
+    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinel1_creo.csv"),parallel_jobs=1,connection_provider=creo)
+
+def test_benchmark_creo_20km_tile(some_20km_tiles_in_belgium):
     cube = features.load_features(2020, creo, provider="creodias")
 
-    for polygon in some_20km_tiles:
-        box = polygon.bounds
-        cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).download("tile_20km.tiff")
+
+    def run(row):
+        box = row.geometry.bounds
+        cropland = row.cropland_perc
+        job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).send_job(out_format="GTiff",
+                                                                                              title=f"Croptype features {cropland:.1f}",
+                                                                                               description=f"Features for croptype detection.",
+                                                                                              job_options=creo_job_options)
+        job.start_job()
+        return job
+
+    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_creo.csv"),parallel_jobs=1,connection_provider=creo)
 
 def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     s2_cube, idx_list, s2_list = features.sentinel2_features(2020, creo, provider="creodias")
     stats = features.compute_statistics(s2_cube).linear_scale_range(0,30000,0,30000)
 
-    job_options = {
-        "driver-memory": "3G",
-        "driver-memoryOverhead": "2G",
-        "driver-cores": "1",
-        "executor-memory": "1G",
-        "executor-memoryOverhead": "4G",
-        "executor-cores": "3",
-        "max-executors": "10"
-    }
+
 
     def run(row):
         box = row.geometry.bounds
@@ -65,7 +87,7 @@ def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
         job = stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).send_job(out_format="GTiff",
                                                                                               title=f"Croptype Sentinel-2 features {cropland:.1f}",
                                                                                                description=f"Sentinel-2 features for croptype detection.",
-                                                                                              job_options=job_options)
+                                                                                              job_options=creo_job_options)
         job.start_job()
         return job
 
@@ -103,7 +125,7 @@ def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
         #stats.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3] ).execute_batch("tile_20km.tiff",title="Sentinel-2 features",job_options=job_options)
 
 def test_benchmark_terrascope_20km_tile_features(some_20km_tiles_in_belgium):
-    cube = features.load_features(2020, terrascope_dev, provider="terrascope")
+    cube = features.load_features(2020, terrascope_dev, provider="sentinelhub")
 
 
     job_options = {
@@ -124,32 +146,24 @@ def test_benchmark_terrascope_20km_tile_features(some_20km_tiles_in_belgium):
                                                                                                description=f"Features for croptype detection.",
                                                                                               job_options=job_options)
         job.start_job()
+        job.logs()
         return job
 
 
-    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_terrascope_masked.csv"))
+    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinelhub_masked.csv"),parallel_jobs=3)
 
-def test_benchmark_creo_sentinel1_samples(some_polygons):
+def test_benchmark_creo_samples(some_polygons):
     """
     NOTE: for 2021, it seems that a large number of GRD products are missing on CreoDIAS!!
     @return:
     """
-    cube = features.sentinel1_features(2020, creo,provider="creodias",orbitDirection="ascending",relativeOrbit=88)
-    stats = features.compute_statistics(cube)
+    cube = features.load_features(2020, creo, provider="creodias")
 
-    job_options = {
-        "driver-memory": "1G",
-        "driver-memoryOverhead": "1G",
-        "driver-cores": "1",
-        "executor-memory": "1G",
-        "executor-memoryOverhead": "3G",
-        "executor-cores": "1",
-        "max-executors": "8"
-    }
 
-    stats.filter_spatial(some_polygons).execute_batch(title="Punten extraheren Sentinel-1",
+
+    cube.filter_spatial(some_polygons).execute_batch(title="Punten extraheren",
                             out_format="netCDF",
-                            sample_by_feature=True,job_options=job_options)
+                            sample_by_feature=True,job_options=creo_job_options)
     #job.download_results("/tmp/")
 
 def test_benchmark_terrascope_sentinel1():
