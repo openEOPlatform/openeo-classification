@@ -27,7 +27,7 @@ job_options = {
 def load_features(year, connection_provider = connection, provider = "Terrascope"):
     idx_dekad, idx_list, s2_list = sentinel2_features(year, connection_provider, provider)
 
-    s1_dekad = sentinel1_features(year, connection_provider=connection, provider=provider,orbitDirection="ASCENDING")
+    s1_dekad = sentinel1_features(year, connection_provider=connection_provider, provider=provider,orbitDirection="ASCENDING")
     s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
     base_features = idx_dekad.merge_cubes(s1_dekad)
     base_features = base_features.rename_labels("bands", s2_list + idx_list + ["ratio", "VV", "VH"])

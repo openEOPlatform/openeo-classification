@@ -8,7 +8,7 @@ import openeo_classification
 import os
 from explore import count_croptypes
 import pandas as pd
-
+from openeo_classification.connection import connection
 
 ## Load in the data
 input_data, fns = read_f(directory = "resources/reference_data/")
@@ -19,11 +19,9 @@ zones = input_data["zonenumber"].unique() #[31]
 base_path = Path(openeo_classification.__file__).parent / "resources"/"training_data"
 os.makedirs(base_path,exist_ok=True)
 ## Indicate which crops you want to classify and get their respective ID's, as well as the ID's of the crops you don't want to classify (the "other" class)
-crop_list = ["Maize", "Winter wheat", "Winter barley","Winter rapeseed", "Potatoes", "Sugar beet", "Grasses and other fodder crops", "Temporary grass crops", "Permanent grass crops"]
-## Load or create the file that will monitor job statistics
+crop_list = ["Maize", "Winter wheat", "Winter barley","Winter rapeseed", "Winter cereal", "Potatoes", "Sugar beet", "Grasses and other fodder crops", "Temporary grass crops", "Permanent grass crops"]
 
 first_time = False
-
 if first_time:
     ## Do some preliminary data exploration
     pd.set_option('display.max_rows', None)
@@ -36,7 +34,7 @@ if first_time:
 else:
     crop_ids, other_crop_ids = get_crop_codes(crop_list, input_data)
 
-crops_of_interest = False
+crops_of_interest = True
 if crops_of_interest:
     ids = crop_ids
     fp = base_path / "crops_of_interest"
@@ -79,12 +77,8 @@ def run_jobs(df, fnp, features, year):
 for year in years:
     for prov in ["terrascope", "sentinelhub"]:
         for zone in zones:
-            features = load_features(year, provider = prov)
+            features = load_features(year, connection_provider = connection, provider = prov)
             for fnp in glob.glob(str(fp / prov / ("*"+str(year)+"_zone"+str(zone)+"*"))):
-                # print(fnp)
-                # with open(fnp) as fn:
-                #     pol = fn.readlines()[0]
-                # tottt += len(eval(pol)["features"])
                 df = create_or_load_job_statistics(path = base_path / "job_statistics.csv")
                 if not df.empty and fnp in df["fp"].tolist():
                     continue
