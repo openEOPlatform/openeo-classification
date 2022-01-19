@@ -19,7 +19,12 @@ zones = input_data["zonenumber"].unique() #[31]
 base_path = Path(openeo_classification.__file__).parent / "resources"/"training_data"
 os.makedirs(base_path,exist_ok=True)
 ## Indicate which crops you want to classify and get their respective ID's, as well as the ID's of the crops you don't want to classify (the "other" class)
-crop_list = ["Maize", "Winter wheat", "Winter barley","Winter rapeseed", "Winter cereal", "Potatoes", "Sugar beet", "Grasses and other fodder crops", "Temporary grass crops", "Permanent grass crops"]
+crop_list = [
+                "Winter wheat", "Winter barley", "Winter cereal", # Winter cereals
+                "Spring wheat", "Spring barley", "Spring cereal", # Spring / summer cereals
+                "Winter rapeseed", "Maize", "Potatoes", "Sugar beet", 
+                "Grasses and other fodder crops", "Temporary grass crops", "Permanent grass crops" # Grasses
+    ]
 
 first_time = False
 if first_time:

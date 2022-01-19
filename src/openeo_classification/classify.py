@@ -4,6 +4,8 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix,plot_confusion_matrix
 from catboost import CatBoostClassifier
 import matplotlib.pyplot as plt
+from explore import all_crop_codes
+import math
 
 df = pd.read_csv("resources/training_data/final_features.csv",index_col=0)
 
@@ -11,15 +13,17 @@ band_names = ["B06", "B12"] + ["NDVI", "NDMI", "NDGI", "ANIR", "NDRE1", "NDRE2",
 tstep_labels = ["t" + str(4 * index) for index in range(0, 6)]
 all_bands = [band + "_" + stat for band in band_names for stat in ["p10", "p50", "p90", "sd"] + tstep_labels]
 
+df["y"] = df["ids"].apply(lambda num: all_crop_codes[num // 10 ** (int(math.log(num, 10)) - 4 + 1)])
+
 X = df[all_bands]
-y = df["ids"]
+y = df["y"]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
 
 param_grid = {'learning_rate': [0.07],#[0.03, 0.1],
         'depth': [6],#[4, 6, 10]
-        'l2_leaf_reg': [3,5],#[1, 3, 5,],
-        'iterations': [1500]}#, 100, 150]}
+        'l2_leaf_reg': [10],#[1, 3, 5,],
+        'iterations': [5000]}#, 100, 150]}
 cb = CatBoostClassifier()
 grid_search = GridSearchCV(estimator = cb, param_grid = param_grid, cv = 3, n_jobs = -1)
 
