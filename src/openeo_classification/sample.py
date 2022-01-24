@@ -27,7 +27,7 @@ def read_f(directory:str = "resources/reference_data/") -> pd.DataFrame:
     return pd.concat(files), fns
 
 
-def sample_polygons(crop_ids, tot_samp=2000, repeat_per_sample=1, input_df=None) -> pd.DataFrame:
+def sample_polygons(crop_id, tot_samp=2000, repeat_per_sample=1, input_df=None) -> pd.DataFrame:
     """
     Builds a pandas dataframe containing up to TOT_SAMP number of samples, combined from all TOT_FILES (the different 
     data files, e.g. AT 2017, FR 2018, etc.) that are loaded into input_df (input_df does not need to be specified, because it can be
@@ -50,17 +50,17 @@ def sample_polygons(crop_ids, tot_samp=2000, repeat_per_sample=1, input_df=None)
 
     if input_df is None:
         input_df = _read_f()
-    crop_df = input_df[input_df["CT"].isin(crop_ids)]
+    crop_df = input_df[input_df["CT"] == crop_id]
     
     tot_input_files=len(crop_df["ref_id"].unique())+1
     
     if len(crop_df) == 0:
-        raise ValueError("The crop ID you selected - {} - does not exist in the dataset you supplied".format(crop_ids))
+        raise ValueError("The crop ID you selected - {} - does not exist in the dataset you supplied".format(crop_id))
 
     tot_df = pd.concat([crop_df]+[crop_df.copy()]*(repeat_per_sample-1), ignore_index=True)
     if tot_samp > len(tot_df):
         print("The amount of {} samples you want is more than {} times the total amount of samples, {}. Hence the amount of features sampled for crop {} is: {}".format(
-            crop_ids, repeat_per_sample, len(crop_df), crop_ids, len(tot_df)))
+            crop_id, repeat_per_sample, len(crop_df), crop_id, len(tot_df)))
         tot_samp = len(tot_df)
     samples = tot_df.sample(tot_samp)
     return samples
@@ -86,20 +86,20 @@ def _extract_point_from_polygon(shp):
         return Point(x,y).buffer(10**-10)
 
 
-def write_to_json(df, ds_nr, ids, year, zonenumber, folder="resources/training_data/"):
+def write_to_json(df, ds_nr, crop_id, year, zonenumber, folder="resources/training_data/"):
     geom = np.asarray(df["sample_polygon"]).tolist()
     ref_id = df['ref_id']
     metadata = {
-                    "ids": str(ids),
+                    "ids": str(crop_id),
                     "year": str(year),
-                    "title": str(ids[0]),
-                    "name": str(ids[0])
+                    "title": str(crop_id),
+                    "name": str(crop_id)
                }
     el = json.loads(gpd.GeoDataFrame({"ref_id":ref_id,"zone_num":zonenumber,"geometry":geom}).to_json())
     el.update(metadata)
     if not os.path.exists(folder):
         os.makedirs(folder)
-    with open(folder / ("sampleable_polygons_year"+str(year)+"_zone"+str(zonenumber)+"_id"+str(''.join([str(i) for i in ids]))+"_p"+str(ds_nr)+".json"), 'w') as fn:
+    with open(folder / ("sampleable_polygons_year"+str(year)+"_zone"+str(zonenumber)+"_id"+str(crop_id)+"_p"+str(ds_nr)+".json"), 'w') as fn:
         json.dump(el, fn)
 
 def get_crop_codes(crop_list: list, f: pd.DataFrame):
@@ -113,15 +113,19 @@ def get_crop_codes(crop_list: list, f: pd.DataFrame):
     non_rel_ids = [i for i in f["CT"].unique() if i not in np.hstack(rel_ids)]
     non_rel_ids.sort()
 
-    rel_counts = np.unique([i // 100 for i in rel_ids], return_counts=True)
-    non_rel_counts = np.unique([i // 100 for i in non_rel_ids], return_counts=True)
-    rel_final = [[j for j in rel_ids if j//100==i] for i in list(rel_counts[0])]
-    non_rel_final = [[j for j in non_rel_ids if j//100==i] for i in list(non_rel_counts[0])]
-    return rel_final, non_rel_final
+    return rel_ids, non_rel_ids
+
+    # rel_counts = np.unique([i // 100 for i in rel_ids], return_counts=True)
+    # print(rel_counts)
+    # non_rel_counts = np.unique([i // 100 for i in non_rel_ids], return_counts=True)
+    # rel_final = [[j for j in rel_ids if j//100==i] for i in list(rel_counts[0])]
+    # print(rel_final)
+    # non_rel_final = [[j for j in non_rel_ids if j//100==i] for i in list(non_rel_counts[0])]
+    # return rel_final, non_rel_final
 
 
 
-def store_ids(ids, zone, years, crop_df, output_folder):
+def store_id(crop_id, zone, years, crop_df, output_folder):
     for year in years:
         crop_year = crop_df[crop_df['validityTi'] == str(year)+"-06-01"]
         if len(crop_year) == 0:
@@ -130,21 +134,21 @@ def store_ids(ids, zone, years, crop_df, output_folder):
         if split_amount > 0:
             dfs = np.array_split(crop_year, split_amount+1)
             for i,df in enumerate(dfs):
-                write_to_json(df=df, ds_nr=i, ids=ids, year=year, zonenumber=zone, folder=output_folder)
+                write_to_json(df=df, ds_nr=i, crop_id=crop_id, year=year, zonenumber=zone, folder=output_folder)
         else:
-            write_to_json(df=crop_year, ds_nr=0, ids=ids, year=year, zonenumber=zone, folder=output_folder)
+            write_to_json(df=crop_year, ds_nr=0, crop_id=crop_id, year=year, zonenumber=zone, folder=output_folder)
 
 
-def sample_and_store_ids(ids, zones, years, input_df, output_folder, tot_samp=2000, repeat_per_sample=3):
-    print("Starting to sample polygons for ids {}".format(ids))
-    crop = sample_polygons(crop_ids=ids, tot_samp=tot_samp, repeat_per_sample=repeat_per_sample, input_df=input_df)
+def sample_and_store_id(crop_id, zones, years, input_df, output_folder, tot_samp=2000, repeat_per_sample=3):
+    print("Starting to sample polygons for id {}".format(crop_id))
+    crop = sample_polygons(crop_id=crop_id, tot_samp=tot_samp, repeat_per_sample=repeat_per_sample, input_df=input_df)
     crop["sample_polygon"] = crop["geometry"].apply(_extract_point_from_polygon)
     crop_belgium = crop[crop["ref_id"].str.slice(4,8) == "_BE_"]
     crop_rest = crop[crop["ref_id"].str.slice(4,8) != "_BE_"]
-    store_ids(ids, "31", years, crop_belgium, output_folder / "terrascope")
+    store_id(crop_id, "31", years, crop_belgium, output_folder / "terrascope")
     for zone in zones:
         crop_zone = crop_rest.query('zonenumber=='+str(zone))
-        store_ids(ids, zone, years, crop_zone, output_folder / "sentinelhub")
+        store_id(crop_id, zone, years, crop_zone, output_folder / "sentinelhub")
 
 
 def sample_and_store_polygons(crop_list, zones, years, input_df, output_folder=Path("resources")/ "training_data", tot_samp_crops=500, tot_samp_other=200, repeat_per_sample=3):
@@ -154,8 +158,8 @@ def sample_and_store_polygons(crop_list, zones, years, input_df, output_folder=P
     """
     crop_ids, other_crop_ids = get_crop_codes(crop_list, input_df)
 
-    for ids in crop_ids:
-        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder  / "crops_of_interest", tot_samp=tot_samp_crops, repeat_per_sample=repeat_per_sample)
-    for ids in other_crop_ids:
-        sample_and_store_ids(ids, zones, years, input_df, output_folder=output_folder / "other_crops", tot_samp=tot_samp_other, repeat_per_sample=repeat_per_sample)
+    for crop_id in crop_ids:
+        sample_and_store_id(crop_id, zones, years, input_df, output_folder=output_folder  / "crops_of_interest", tot_samp=tot_samp_crops, repeat_per_sample=repeat_per_sample)
+    for crop_id in other_crop_ids:
+        sample_and_store_id(crop_id, zones, years, input_df, output_folder=output_folder / "other_crops", tot_samp=tot_samp_other, repeat_per_sample=repeat_per_sample)
     return crop_ids, other_crop_ids
