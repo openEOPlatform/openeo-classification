@@ -8,6 +8,8 @@ from explore import all_crop_codes
 import math
 
 df = pd.read_csv("resources/training_data/final_features.csv",index_col=0)
+## GOOI DATA ERUIT MET MAX WAARDEN (65k oid)
+### -1 waarden moeten eruit, dat zijn de "None"
 
 band_names = ["B06", "B12"] + ["NDVI", "NDMI", "NDGI", "ANIR", "NDRE1", "NDRE2", "NDRE5"] + ["ratio", "VV", "VH"]
 tstep_labels = ["t" + str(4 * index) for index in range(0, 6)]
@@ -18,7 +20,7 @@ df["y"] = df["ids"].apply(lambda num: all_crop_codes[num // 10 ** (int(math.log(
 X = df[all_bands]
 y = df["y"]
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=190)
 
 param_grid = {'learning_rate': [0.07],#[0.03, 0.1],
         'depth': [6],#[4, 6, 10]

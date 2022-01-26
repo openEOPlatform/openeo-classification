@@ -30,6 +30,7 @@ def match_ids():
 	job_stats = pd.read_csv(str(base_path / "job_statistics - Copy.csv"))
 	finished = job_stats[job_stats["status"]=="finished"]
 	p = re.compile(r'.*\\([a-z_]+)\\([a-z]+)\\sampleable_polygons_year([0-9]+)_zone([0-9]+)_id([0-9]+)_p([0-9]).json')
+	### load in the geojsons here and get features in the geojsons : zoneID and groupID
 	df = pd.DataFrame(columns=["jobid","crops_of_interest","platform","year","zone","ids","part"])
 	for index, row in finished.iterrows():
 		m = p.match(row["fp"])

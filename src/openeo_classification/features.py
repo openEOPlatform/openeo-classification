@@ -24,11 +24,6 @@ job_options = {
         "max-executors": "100"
 }
 
-lat_min = 50.42
-lat_max = 50.43
-lon_min = 4.46
-lon_max = 4.47
-
 
 def load_features(year, connection_provider = connection, provider = "Terrascope"):
     idx_dekad, idx_list, s2_list = sentinel2_features(year, connection_provider, provider)
@@ -38,8 +33,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
     base_features = idx_dekad.merge_cubes(s1_dekad)
     base_features = base_features.rename_labels("bands", s2_list + idx_list + ["ratio", "VV", "VH"])
     features = compute_statistics(base_features).linear_scale_range(0,30000,0,30000)
-    # return features
-    return base_features, features
+    return features
 
 
 def sentinel2_features(year, connection_provider, provider):
@@ -59,7 +53,6 @@ def sentinel2_features(year, connection_provider, provider):
     c = connection_provider()
     s2 = c.load_collection(s2_id,
                            temporal_extent=temp_ext_s2,
-                           spatial_extent={"west": lon_min, "south": lat_min, "east": lon_max, "north": lat_max},
                            bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
                            properties=props)
 
@@ -71,8 +64,7 @@ def sentinel2_features(year, connection_provider, provider):
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
     idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5", "ANIR"]
-    # s2_list = ["B06", "B12"]
-    s2_list = ["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12"]
+    s2_list = ["B06", "B12"]
     index_dict = {
         "collection": {
             "input_range": [0, 8000],
@@ -83,7 +75,6 @@ def sentinel2_features(year, connection_provider, provider):
         }
     }
     index_dict["indices"]["ANIR"] = {"input_range": [0,1], "output_range": [0,30000]}
-    print(index_dict)
     indices = compute_and_rescale_indices(s2, index_dict, True).filter_bands(s2_list + idx_list)
     idx_dekad = indices.aggregate_temporal_period(period="dekad", reducer="mean")
     idx_dekad = idx_dekad.apply_dimension(dimension="t", process="array_interpolate_linear").filter_temporal(
@@ -110,7 +101,6 @@ def sentinel1_features(year, connection_provider = connection, provider = "Terra
 def cropland_mask(cube_to_mask, connection, provider):
     if (provider.lower() == "terrascope"):
         wc = connection.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands=["MAP"],
-                                        spatial_extent={"west": lon_min, "south": lat_min, "east": lon_max, "north": lat_max},
                                         temporal_extent=["2020-12-30", "2021-01-01"])
         cube_to_mask = cube_to_mask.mask((wc.band("MAP") != 40).min_time().resample_cube_spatial(cube_to_mask))
     return cube_to_mask
@@ -157,7 +147,6 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
 
     s1 = c.load_collection(s1_id,
                            temporal_extent=temp_ext_s1,
-                           spatial_extent={"west": lon_min, "south": lat_min, "east": lon_max, "north": lat_max},
                            bands=["VH", "VV"],
                            properties=properties
                            )

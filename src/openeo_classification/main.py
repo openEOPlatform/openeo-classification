@@ -9,9 +9,14 @@ import os
 from explore import count_croptypes
 import pandas as pd
 from openeo_classification.connection import connection
+import geopandas as gpd
 
 ## Load in the data
 input_data, fns = read_f(directory = "resources/reference_data/")
+aez_df = gpd.read_file("resources/AEZ.geojson")[["groupID","zoneID","geometry"]]
+
+# pd.set_option('display.max_rows', None)
+# print(count_croptypes(input_data, fns).sort_values(by=["TOTAL"],ascending=False))
 
 ## Setting parameters for running jobs
 years = [2017,2018,2019]
@@ -20,11 +25,14 @@ base_path = Path(openeo_classification.__file__).parent / "resources"/"training_
 os.makedirs(base_path,exist_ok=True)
 ## Indicate which crops you want to classify and get their respective ID's, as well as the ID's of the crops you don't want to classify (the "other" class)
 crop_list = [
-                "Winter wheat", "Winter barley", "Winter cereal", # Winter cereals
-                "Spring wheat", "Spring barley", "Spring cereal", # Spring / summer cereals
-                "Winter rapeseed", "Maize", "Potatoes", "Sugar beet", 
-                "Grasses and other fodder crops", "Temporary grass crops", "Permanent grass crops" # Grasses
+                "Winter wheat", "Winter barley", "Winter cereal", # Winter cereals   : 1110, 1510, 1910
+                "Spring wheat", "Spring barley", "Spring cereal", # Spring / summer cereals : 1120, 1520, 1920 
+                "Winter rapeseed", "Maize", "Potatoes", "Sugar beet", # 4351, 1200, 5100, 8100
+                # "Grasses and other fodder crops", "Temporary grass crops", "Permanent grass crops" # Grasses : 9100, 9110, 9120
     ]
+
+sample = SamplePolygons(crop_list=crop_list, zones=zones, years=years, input_df=input_data, 
+    aez_stratification=aez_df, output_folder=base_path, tot_samp_crops=5000, tot_samp_other=2000, repeat_per_sample=3)
 
 first_time = False
 if first_time:
@@ -34,18 +42,19 @@ if first_time:
 
     ## Create the JSON files containing point samples that will be used for the feature calculation of the training / test data
     ## Note! This only needs to be run once.
-    crop_ids, other_crop_ids = sample_and_store_polygons(crop_list=crop_list, zones=zones, years=years, input_df=input_data, output_folder=base_path,
-         tot_samp_crops=5000, tot_samp_other=2000, repeat_per_sample=3)
+    crop_ids, other_crop_ids = sample.sample_and_store_polygons()
 else:
-    crop_ids, other_crop_ids = get_crop_codes(crop_list, input_data)
+    crop_ids, other_crop_ids = sample.get_crop_codes()
 
-crops_of_interest = True
+crops_of_interest = False
 if crops_of_interest:
     ids = crop_ids
     fp = base_path / "crops_of_interest"
 else:
     ids = other_crop_ids
     fp = base_path / "other_crops"
+
+
 
 
 def run_jobs(df, fnp, features, year):
@@ -80,7 +89,7 @@ def run_jobs(df, fnp, features, year):
 
 
 for year in years:
-    for prov in ["terrascope", "sentinelhub"]:
+    for prov in ["terrascope"]:#, "sentinelhub"]:
         for zone in zones:
             features = load_features(year, connection_provider = connection, provider = prov)
             for fnp in glob.glob(str(fp / prov / ("*"+str(year)+"_zone"+str(zone)+"*"))):
