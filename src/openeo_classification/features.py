@@ -59,7 +59,7 @@ def sentinel2_features(year, connection_provider, provider):
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
 
-    s2 = cropland_mask(s2, c, provider)
+    # s2 = cropland_mask(s2, c, provider)
 
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
@@ -115,7 +115,7 @@ def compute_statistics(base_features):
     @return:
     """
     def computeStats(input_timeseries: ProcessBuilder):
-        tsteps = list([input_timeseries.array_element(4 * index) for index in range(0, 6)])
+        tsteps = list([input_timeseries.array_element(6 * index) for index in range(0, 6)])
         return array_concat(
             array_concat(input_timeseries.quantiles(probabilities=[0.1, 0.5, 0.9]), input_timeseries.sd()), tsteps)
 
@@ -154,7 +154,7 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
     if (provider.upper() != "TERRASCOPE"):
         s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"2","tile_size":256, "otb_memory":256})
 
-    s1 = cropland_mask(s1, c, provider)
+    # s1 = cropland_mask(s1, c, provider)
     # Observed Ranges:
     # VV: 0 - 0.3 - Db: -20 .. 0
     # VH: 0 - 0.3 - Db: -30 .. -5
