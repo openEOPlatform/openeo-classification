@@ -25,10 +25,10 @@ job_options = {
 }
 
 
-def load_features(year, connection_provider = connection, provider = "Terrascope"):
-    idx_dekad, idx_list, s2_list = sentinel2_features(year, connection_provider, provider)
+def load_features(year, connection_provider = connection, provider = "Terrascope",processing_opts={}):
+    idx_dekad, idx_list, s2_list = sentinel2_features(year, connection_provider, provider,processing_opts)
 
-    s1_dekad = sentinel1_features(year, connection_provider=connection_provider, provider=provider,orbitDirection="ASCENDING")
+    s1_dekad = sentinel1_features(year, connection_provider=connection_provider, provider=provider,orbitDirection="ASCENDING",processing_opts=processing_opts)
     s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
     base_features = idx_dekad.merge_cubes(s1_dekad)
     base_features = base_features.rename_labels("bands", s2_list + idx_list + ["ratio", "VV", "VH"])
@@ -36,7 +36,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
     return features
 
 
-def sentinel2_features(year, connection_provider, provider):
+def sentinel2_features(year, connection_provider, provider,processing_opts={}):
     temp_ext_s2 = [str(year - 1) + "-10-01", str(year) + "-11-01"]
     props = {}
     s2_id = "SENTINEL2_L2A"
@@ -58,6 +58,10 @@ def sentinel2_features(year, connection_provider, provider):
 
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
+    else:
+        s2._pg.arguments['featureflags'] = {}
+
+    s2._pg.arguments['featureflags']['tile_size'] = processing_opts.get("tile_size",256)
 
     # s2 = cropland_mask(s2, c, provider)
 
@@ -83,7 +87,7 @@ def sentinel2_features(year, connection_provider, provider):
 
 
 
-def sentinel1_features(year, connection_provider = connection, provider = "Terrascope", relativeOrbit=None, orbitDirection = None):
+def sentinel1_features(year, connection_provider = connection, provider = "Terrascope", relativeOrbit=None, orbitDirection = None,processing_opts = {}):
     """
     Retrieves and preprocesses Sentinel-1 data into a cube with 10-daily periods (dekads).
 
@@ -93,7 +97,7 @@ def sentinel1_features(year, connection_provider = connection, provider = "Terra
     @return:
     """
 
-    s1 = sentinel1_inputs(year, connection_provider, provider, orbitDirection, relativeOrbit)
+    s1 = sentinel1_inputs(year, connection_provider, provider, orbitDirection, relativeOrbit,processing_opts)
     s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="mean")
     s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
     return s1_dekad
@@ -127,7 +131,7 @@ def compute_statistics(base_features):
     return features
 
 
-def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDirection=None, relativeOrbit=None):
+def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDirection=None, relativeOrbit=None,proccessing_opts:dict={}):
     c = connection_provider()
     temp_ext_s1 = [str(year-1) + "-11-01", str(year) + "-11-01"]
     if (provider.upper() == "TERRASCOPE"):
@@ -152,7 +156,7 @@ def sentinel1_inputs(year, connection_provider, provider= "Terrascope", orbitDir
                            )
     # s1._pg.arguments['featureflags'] = temporal_partition_options
     if (provider.upper() != "TERRASCOPE"):
-        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"2","tile_size":256, "otb_memory":256})
+        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"1","tile_size":proccessing_opts.get("tile_size",256), "otb_memory":128})
 
     # s1 = cropland_mask(s1, c, provider)
     # Observed Ranges:
