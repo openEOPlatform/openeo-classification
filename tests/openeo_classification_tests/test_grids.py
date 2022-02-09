@@ -8,6 +8,7 @@ def test_LAEA_20km():
 
 def test_utm_100km():
     df = grids.UTM_100km_EU27()
-    assert len(df) == 681
-    #print(df)
+    assert len(df) == 662
+
+    print(df)
 
