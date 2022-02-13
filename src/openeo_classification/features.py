@@ -25,8 +25,6 @@ job_options = {
         "max-executors": "100"
 }
 
-
-
 def _calculate_intervals(start_date, end_date, stepsize = 10, overlap = 10):
     between_steps = timedelta(days=stepsize)
     within_steps = timedelta(days=stepsize+overlap)
@@ -40,19 +38,19 @@ def _calculate_intervals(start_date, end_date, stepsize = 10, overlap = 10):
     return tot_intervals
 
 
-def load_features(year, connection_provider = connection, provider = "Terrascope", sampling=False):
+def load_features(year, connection_provider = connection, provider = "Terrascope", processing_opts={}, sampling=False):
     start_date = date(year,3,15)
     end_date = date(year,10,31)
     stepsize_s2 = 10
     stepsize_s1 = 12
     # idx_dekad, idx_list, s2_list = sentinel2_features(start_date, end_date, connection_provider, provider, sampling=sampling, stepsize=stepsize_s2)
-    idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, sampling=sampling, stepsize=stepsize_s2)
+    idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, processing_opts, sampling=sampling, stepsize=stepsize_s2)
 
     # dem = load_dem(idx_dekad, connection_provider)
 
     idx_features = compute_statistics(idx_dekad, start_date, end_date, stepsize=stepsize_s2).linear_scale_range(0,30000,0,30000)
 
-    s1_dekad = sentinel1_features(start_date, end_date, connection_provider, provider, orbitDirection="ASCENDING", sampling=sampling, stepsize=stepsize_s1)
+    s1_dekad = sentinel1_features(start_date, end_date, connection_provider, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=sampling, stepsize=stepsize_s1)
     s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
 
     s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1).linear_scale_range(0,30000,0,30000)
@@ -71,7 +69,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 #                            temporal_extent=temp_ext_s2)
 #     return dem.max_time().resample_cube_spatial(cube)
 
-def sentinel2_features(start_date, end_date, connection_provider, provider, sampling, stepsize=10, overlap=10, reducer="median"):
+def sentinel2_features(start_date, end_date, connection_provider, provider,processing_opts={}, sampling, stepsize=10, overlap=10, reducer="median"):
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
     props = {}
     s2_id = "SENTINEL2_L2A"
@@ -93,6 +91,10 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, samp
 
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
+    else:
+        s2._pg.arguments['featureflags'] = {}
+
+    s2._pg.arguments['featureflags']['tile_size'] = processing_opts.get("tile_size",256)
 
     if not sampling:
         s2 = cropland_mask(s2, c, provider)
@@ -128,7 +130,7 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, samp
     return idx_dekad
 
 
-def sentinel1_features(start_date, end_date, connection_provider = connection, provider = "Terrascope", relativeOrbit=None, orbitDirection = None, sampling=False, stepsize=12, overlap=6, reducer="mean"):
+def sentinel1_features(start_date, end_date, connection_provider = connection, provider = "Terrascope", processing_opts={}, relativeOrbit=None, orbitDirection = None, sampling=False, stepsize=12, overlap=6, reducer="mean"):
     """
     Retrieves and preprocesses Sentinel-1 data into a cube with 10-daily periods (dekads).
 
@@ -138,7 +140,7 @@ def sentinel1_features(start_date, end_date, connection_provider = connection, p
     @return:
     """
 
-    s1 = sentinel1_inputs(start_date, end_date, connection_provider, provider, orbitDirection, relativeOrbit,sampling)
+    s1 = sentinel1_inputs(start_date, end_date, connection_provider, provider, processing_opts, orbitDirection, relativeOrbit,sampling)
     # s1_dekad = s1.aggregate_temporal_period(period="dekad", reducer="median")
     s1_dekad = s1.aggregate_temporal(
         intervals=_calculate_intervals(start_date, end_date, stepsize = stepsize, overlap=overlap),
@@ -182,7 +184,7 @@ def compute_statistics(base_features, start_date, end_date, stepsize):
     return features
 
 
-def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terrascope", orbitDirection=None, relativeOrbit=None,sampling=False):
+def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terrascope", proccessing_opts:dict={}, orbitDirection=None, relativeOrbit=None,sampling=False):
     c = connection_provider()
     temp_ext_s1 = [start_date.isoformat(), end_date.isoformat()]
     if (provider.upper() == "TERRASCOPE"):
@@ -207,7 +209,7 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
                            )
     # s1._pg.arguments['featureflags'] = temporal_partition_options
     if (provider.upper() != "TERRASCOPE"):
-        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"2","tile_size":256, "otb_memory":256})
+        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"1","tile_size":proccessing_opts.get("tile_size",256), "otb_memory":128})
 
     if not sampling:
         s1 = cropland_mask(s1, c, provider)

@@ -39,6 +39,21 @@ def LAEA_20km()->gpd.GeoDataFrame:
 
     return df
 
+
+def UTM_100km_EU27()->gpd.GeoDataFrame:
+    europe = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+    europe = europe[europe.continent=="Europe"]
+    countries = europe[europe.name.isin(EU27)]
+    df = gpd.read_file("https://artifactory.vgt.vito.be/auxdata-public/grids/utm-tiling-grid-100km.gpkg",mask=countries)
+    df = df.cx[-14:35, 33:72] #rough EU bbox to get rid of overseas areas
+    return df
+
+
+def UTM_100km_World()->gpd.GeoDataFrame:
+    world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+    df = gpd.read_file("https://artifactory.vgt.vito.be/auxdata-public/grids/utm-tiling-grid-100km.gpkg",mask=world)
+    return df
+
 def cropland_EU27()->gpd.GeoDataFrame:
     f = open_text(grids,"cropland_20km.geojson")
     features = json.load(f)
