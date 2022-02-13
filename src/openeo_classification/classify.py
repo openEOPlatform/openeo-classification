@@ -10,6 +10,9 @@ import numpy as np
 
 df = pd.read_csv("resources/training_data/final_features.csv",index_col=0)
 
+## Other class mag iig niet op Other cereals gaan trainen
+### FF open laten : seizonaal uit elkaar trekken of klassen uit elkaar trekken (wheat VS rye VS barley etc. of spring vs. winter)
+
 ## Remove NaN values
 df = df[df["B06_p50"].astype(int) != 65535]
 

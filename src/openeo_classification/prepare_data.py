@@ -82,7 +82,7 @@ def load_netcdfs():
 		df = pd.concat([df, final], ignore_index = True, axis = 0)
 	df.to_csv("resources/training_data/final_features.csv")
 
-# if download_data:
-# 	download_data()
+if download_data:
+	download_data()
 
-load_netcdfs()
+# load_netcdfs()
