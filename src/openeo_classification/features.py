@@ -69,7 +69,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 #                            temporal_extent=temp_ext_s2)
 #     return dem.max_time().resample_cube_spatial(cube)
 
-def sentinel2_features(start_date, end_date, connection_provider, provider,processing_opts={}, sampling, stepsize=10, overlap=10, reducer="median"):
+def sentinel2_features(start_date, end_date, connection_provider, provider,processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median"):
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
     props = {}
     s2_id = "SENTINEL2_L2A"
