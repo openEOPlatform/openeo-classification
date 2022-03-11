@@ -45,7 +45,7 @@ if first_time:
 else:
     crop_ids, other_crop_ids = sample.get_crop_codes()
 
-crops_of_interest = True
+crops_of_interest = False
 if crops_of_interest:
     ids = crop_ids
     fp = base_path / "crops_of_interest"

@@ -113,6 +113,7 @@ class SamplePolygons():
         samples_lpis["geometry"] = samples_lpis["geometry"].apply(self._extract_point_from_polygon)
 
         samples_lucas = tot_df_lucas.sample(tot_samp_lucas)
+        samples_lucas["geometry"] = samples_lucas["geometry"].apply(lambda x: x.centroid.buffer(10**-10))
         samples_lucas.to_csv("the_lucas_samples.csv")
         return samples_lpis, samples_lucas
 
