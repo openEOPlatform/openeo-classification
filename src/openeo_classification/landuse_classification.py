@@ -1,5 +1,9 @@
 import pandas as pd
 from features import *
+import ipywidgets as widgets
+import datetime
+from openeo_classification.connection import connection
+
 
 # df = pd.read_csv("lucas/EU_2018_20200213.CSV")
 # print(df.columns)
@@ -99,23 +103,107 @@ lookup_lucas = {
 # 11) Sea and ocean; 12) Glaciers and Permanent Snow; 13) Wetlands. 
 
 
-def load_features(feature_raster, aoi, start_date, end_date, stepsize_s2=10, stepsize_s1=12):
-	idx_dekad = load_sentinel2_features(start_date, end_date, connection_provider, provider, processing_opts, sampling=sampling, stepsize=stepsize_s2)
-	idx_features = compute_statistics(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
+def load_lc_features(feature_raster, aoi, start_date, end_date, stepsize_s2=10, stepsize_s1=12):
+    provider = "terrascope"
+    
+    idx_dekad = sentinel2_features(start_date, end_date, connection, provider, processing_opts={}, sampling=True, stepsize=stepsize_s2)
+    idx_features = compute_statistics(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
 
-	s1_dekad = load_sentinel1_features(start_date, end_date, connection_provider, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=sampling, stepsize=stepsize_s1)
-	s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
-	s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1)
+    s1_dekad = sentinel1_features(start_date, end_date, connection, provider, processing_opts={}, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
+    s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
+    s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1)
 
-	features = idx_features.merge_cubes(s1_features)
+    features = idx_features.merge_cubes(s1_features)
 
-	if feature_raster == "s1":
-		return s1_features, features.metadata.band_names
-	elif feature_raster == "s2":
-		return idx_features, idx_features.metadata.band_names
-	else:
-		return features, features.metadata.band_names
+    if feature_raster == "s1":
+        return s1_features, features.metadata.band_names
+    elif feature_raster == "s2":
+        return idx_features, idx_features.metadata.band_names
+    else:
+        return features, features.metadata.band_names
+    
 
+
+# https://github.com/jupyter-widgets/ipywidgets/blob/master/python/ipywidgets/ipywidgets/widgets/widget_upload.py
+def getStartingWidgets():
+    train_test_split = widgets.FloatSlider(value=0.3, min=0, max=1.0, step=0.05)
+    algorithm = widgets.Dropdown(options=['Random Forest'], value='Random Forest', description='Model:', disabled=True)
+    nrtrees = widgets.IntText(value=250, description='Nr trees:')
+    mtry = widgets.IntText(value=3, description="Mtry:")
+    feature_raster = widgets.RadioButtons(options=['Feature fusion', 'Decision fusion'])
+    aoi = widgets.FileUpload(accept='.geojson,.shp',multiple=False, #style=widgets.ButtonStyle(button_color='#F0F0F0'), 
+                             layout=widgets.Layout(width='20em'), description="Upload AOI")
+    strat_layer = widgets.FileUpload(accept='.geojson,.shp',multiple=False, 
+                                     layout=widgets.Layout(width='20em'), description="Upload stratification")
+    include_mixed_pixels = widgets.RadioButtons(options=['Yes', 'No'])
+    start_date = widgets.DatePicker(description='Start date', value=datetime.date(2018,1,1))
+    end_date = widgets.DatePicker(description='End date', value=datetime.date(2018,12,31))
+    nr_targets = widgets.IntSlider(value=10, min=2, max=37, step=1)
+
+    display(widgets.Box( [ widgets.Label(value='Train / test split:'), train_test_split ]))
+    display(algorithm)
+    display(widgets.Box( [ widgets.Label(value="Hyperparameters RF model:"), nrtrees, mtry ]))
+    display(widgets.Box( [ widgets.Label(value='S1 / S2 fusion:'), feature_raster ]))
+    display(aoi)
+    display(strat_layer)
+    display(widgets.Box( [ widgets.Label(value='Include mixed pixels:'), include_mixed_pixels ]))
+    display(start_date)
+    display(end_date)
+    display(widgets.Box( [ widgets.Label(value='Select the amount of target classes:'), nr_targets ]))
+    return train_test_split, algorithm, nrtrees, mtry, feature_raster, aoi, strat_layer, include_mixed_pixels, start_date, end_date, nr_targets
+
+
+def getSelectMultiple():
+    return widgets.SelectMultiple(
+    options=['A00: Artificial land', 
+             'A10: Roofed built-up areas',
+             'A20: Artificial non-built up areas',
+             'A30: Other artificial areas',
+             'B00: Cropland',
+             'B10: Cereals',
+             'B20: Root crops',
+             'B30: Non-permanent industrial crops',
+             'B40: Dry pulses, vegetables and flowers',
+             'B50: Fodder crops',
+             'B70: Permanent crops: fruit trees',
+             'B80: Other permanent crops',
+             'C00: Woodland',
+             'C10: Broadleaved woodland',
+             'C20: Coniferous woodland',
+             'C30: Mixed woodland',
+             'D00: Shrubland',
+             'D10: Shrubland with sparse tree cover',
+             'D20: Shrubland without tree cover',
+             'E00: Grassland',
+             'E10: Grassland with sparse tree/shrub cover',
+             'E20: Grassland without tree/shrub cover',
+             'E30: Spontaneously re-vegetated surfaces',
+             'F00: Bare land and lichens/moss',
+             'F10: Rocks and stones',
+             'F20: Sand',
+             'F30: Lichens and moss',
+             'F40: Other bare soil',
+             'G00: Water areas',
+             'G10: Inland water bodies',
+             'G20: Inland running water',
+             'G30: Transitional water bodies',
+             'G40: Sea and ocean',
+             'G50: Glaciers, permanent snow',
+             'H00: Wetlands',
+             'H10: Inland wetlands',
+             'H20: Coastal wetlands'
+            ],
+    rows=10,
+    description='Target class')
+
+def getTargetClasses(nr_targets):
+	target_classes = {}
+	for i in range(nr_targets.value):
+	    target_classes["target"+str(i)] = getSelectMultiple()
+
+	for target_selector in target_classes.values():
+	    display(target_selector)
+	return target_classes
 
 
 ## C10 Broadleaved woodland    59082
