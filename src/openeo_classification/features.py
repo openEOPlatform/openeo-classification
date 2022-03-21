@@ -1,6 +1,6 @@
 import openeo
 from openeo.processes import array_modify, array_concat, ProcessBuilder,array_create
-from openeo.extra.spectral_indices import compute_indices, compute_and_rescale_indices, append_index
+from openeo.extra.spectral_indices.spectral_indices import compute_indices, compute_and_rescale_indices, append_index
 from openeo_classification.connection import connection
 from datetime import timedelta, date
 

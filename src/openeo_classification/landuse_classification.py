@@ -3,7 +3,11 @@ from openeo_classification.features import *
 import ipywidgets as widgets
 import datetime
 from openeo_classification.connection import connection
-
+import utm
+import pyproj
+import shapely
+import numpy as np
+from shapely.geometry import Point
 
 # df = pd.read_csv("lucas/EU_2018_20200213.CSV")
 # print(df.columns)
@@ -139,6 +143,7 @@ def getStartingWidgets():
     start_date = widgets.DatePicker(description='Start date', value=datetime.date(2018,1,1))
     end_date = widgets.DatePicker(description='End date', value=datetime.date(2018,12,31))
     nr_targets = widgets.IntSlider(value=10, min=2, max=37, step=1)
+    nr_spp = widgets.IntSlider(value=2, min=1, max=6, step=1)
 
     display(widgets.Box( [ widgets.Label(value='Train / test split:'), train_test_split ]))
     display(algorithm)
@@ -150,7 +155,8 @@ def getStartingWidgets():
     display(start_date)
     display(end_date)
     display(widgets.Box( [ widgets.Label(value='Select the amount of target classes:'), nr_targets ]))
-    return train_test_split, algorithm, nrtrees, mtry, feature_raster, aoi, strat_layer, include_mixed_pixels, start_date, end_date, nr_targets
+    display(widgets.Box( [ widgets.Label(value='Select the amount of times you want to point sample each reference polygon:'), nr_spp ]))
+    return train_test_split, algorithm, nrtrees, mtry, feature_raster, aoi, strat_layer, include_mixed_pixels, start_date, end_date, nr_targets, nr_spp
 
 
 def getSelectMultiple():
@@ -204,6 +210,46 @@ def getTargetClasses(nr_targets):
 	for target_selector in target_classes.values():
 	    display(target_selector)
 	return target_classes
+
+
+
+def _get_epsg(lat, zone_nr):
+    if lat >= 0:
+        epsg_code = '326' + str(zone_nr)
+    else:
+        epsg_code = '327' + str(zone_nr)
+    return int(epsg_code)
+
+
+def extract_point_from_polygon(shp):
+    """
+    Extracts a shapely Point from a single shapely Polygon, with a 50% chance of that being the centroid of the polygon and 50%
+    of it being a random pixel within the polygon
+    """
+    within = False
+    while not within:
+        utm_zone_nr = utm.from_latlon(*shp.bounds[0:2])[2]
+        epsg_utm = _get_epsg(shp.bounds[0], utm_zone_nr)
+        project_latlon_to_utm = pyproj.Transformer.from_crs(pyproj.CRS('EPSG:4326'),
+                    pyproj.CRS(epsg_utm),
+            always_xy=True).transform
+        shp_utm = shapely.ops.transform(project_latlon_to_utm, shp)
+        shp_utm_b = shp_utm.buffer(-10, resolution=4, cap_style=3, join_style=3)
+
+        project_utm_to_latlon = pyproj.Transformer.from_crs(pyproj.CRS(epsg_utm),
+                    pyproj.CRS('EPSG:4326'),
+            always_xy=True).transform
+        shp_latlon = shapely.ops.transform(project_utm_to_latlon, shp_utm_b)
+
+        if shp_latlon.is_empty:
+            shp_latlon = shp
+
+        x = np.random.uniform(shp_latlon.bounds[0], shp_latlon.bounds[2])
+        y = np.random.uniform(shp_latlon.bounds[1], shp_latlon.bounds[3])
+        p = Point(x, y)
+        within = shp_latlon.contains(p)
+    return p.buffer(10**-10)
+
 
 
 ## C10 Broadleaved woodland    59082
