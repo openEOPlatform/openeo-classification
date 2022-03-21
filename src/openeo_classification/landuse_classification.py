@@ -1,5 +1,5 @@
 import pandas as pd
-from features import *
+from openeo_classification.features import *
 import ipywidgets as widgets
 import datetime
 from openeo_classification.connection import connection
