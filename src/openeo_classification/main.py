@@ -145,7 +145,7 @@ corrupt_jsons = [
 ]
 
 
-for year in [2018, 2019]:#years:
+for year in years:
     for prov in ["terrascope", "sentinelhub"]:
         for zone in zones:
             features = load_features(year, connection_provider = connection, provider = prov, sampling=True)
