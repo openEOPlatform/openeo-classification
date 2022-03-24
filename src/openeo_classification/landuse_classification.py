@@ -8,6 +8,8 @@ import pyproj
 import shapely
 import numpy as np
 from shapely.geometry import Point
+import geopandas as gpd
+import json
 
 # df = pd.read_csv("lucas/EU_2018_20200213.CSV")
 # print(df.columns)
@@ -109,11 +111,12 @@ lookup_lucas = {
 
 def load_lc_features(feature_raster, aoi, start_date, end_date, stepsize_s2=10, stepsize_s1=12):
     provider = "terrascope"
-    
-    idx_dekad = sentinel2_features(start_date, end_date, connection, provider, processing_opts={}, sampling=True, stepsize=stepsize_s2)
+    c = lambda: connection("openeo-dev.vito.be")
+
+    idx_dekad = sentinel2_features(start_date, end_date, c, provider, processing_opts={}, sampling=True, stepsize=stepsize_s2)
     idx_features = compute_statistics(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
 
-    s1_dekad = sentinel1_features(start_date, end_date, connection, provider, processing_opts={}, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
+    s1_dekad = sentinel1_features(start_date, end_date, c, provider, processing_opts={}, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
     s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
     s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1)
 
@@ -130,11 +133,11 @@ def load_lc_features(feature_raster, aoi, start_date, end_date, stepsize_s2=10, 
 
 # https://github.com/jupyter-widgets/ipywidgets/blob/master/python/ipywidgets/ipywidgets/widgets/widget_upload.py
 def getStartingWidgets():
-    train_test_split = widgets.FloatSlider(value=0.3, min=0, max=1.0, step=0.05)
+    train_test_split = widgets.FloatSlider(value=0.75, min=0, max=1.0, step=0.05)
     algorithm = widgets.Dropdown(options=['Random Forest'], value='Random Forest', description='Model:', disabled=True)
     nrtrees = widgets.IntText(value=250, description='Nr trees:')
     mtry = widgets.IntText(value=3, description="Mtry:")
-    feature_raster = widgets.RadioButtons(options=['Feature fusion', 'Decision fusion'])
+    fusion_technique = widgets.RadioButtons(options=['Feature fusion', 'Decision fusion'])
     aoi = widgets.FileUpload(accept='.geojson,.shp',multiple=False, #style=widgets.ButtonStyle(button_color='#F0F0F0'), 
                              layout=widgets.Layout(width='20em'), description="Upload AOI")
     strat_layer = widgets.FileUpload(accept='.geojson,.shp',multiple=False, 
@@ -148,7 +151,7 @@ def getStartingWidgets():
     display(widgets.Box( [ widgets.Label(value='Train / test split:'), train_test_split ]))
     display(algorithm)
     display(widgets.Box( [ widgets.Label(value="Hyperparameters RF model:"), nrtrees, mtry ]))
-    display(widgets.Box( [ widgets.Label(value='S1 / S2 fusion:'), feature_raster ]))
+    display(widgets.Box( [ widgets.Label(value='S1 / S2 fusion:'), fusion_technique ]))
     display(aoi)
     display(strat_layer)
     display(widgets.Box( [ widgets.Label(value='Include mixed pixels:'), include_mixed_pixels ]))
@@ -156,7 +159,7 @@ def getStartingWidgets():
     display(end_date)
     display(widgets.Box( [ widgets.Label(value='Select the amount of target classes:'), nr_targets ]))
     display(widgets.Box( [ widgets.Label(value='Select the amount of times you want to point sample each reference polygon:'), nr_spp ]))
-    return train_test_split, algorithm, nrtrees, mtry, feature_raster, aoi, strat_layer, include_mixed_pixels, start_date, end_date, nr_targets, nr_spp
+    return train_test_split, algorithm, nrtrees, mtry, fusion_technique, aoi, strat_layer, include_mixed_pixels, start_date, end_date, nr_targets, nr_spp
 
 
 def getSelectMultiple():
@@ -248,8 +251,47 @@ def extract_point_from_polygon(shp):
         y = np.random.uniform(shp_latlon.bounds[1], shp_latlon.bounds[3])
         p = Point(x, y)
         within = shp_latlon.contains(p)
-    return p.buffer(10**-10)
+    return p
 
+
+def mapTargetDataToNumerical(target_classes):
+    mapper = {}
+    counter = 0
+    for key in target_classes:
+        for value in target_classes[key].value:
+            abb = value[:3]
+            if abb in mapper.keys():
+                raise Exception("You selected one target class multiple times")
+            mapper[abb] = counter
+        counter += 1
+    all_lucas_classes = ['A00', 'A10', 'A20', 'A30', 'B00', 'B10', 'B20', 'B30', 'B40', 'B50', 'B70', 'B80', 'C00', 'C10', 'C20', 'C30', 'D00', 'D10', 'D20', 'E00', 'E10', 'E20', 'E30', 'F00', 'F10', 'F20', 'F30', 'F40', 'G00', 'G10', 'G20', 'G30', 'G40', 'G50', 'H00', 'H10', 'H20']
+    dif = sorted(list(set(all_lucas_classes) - set(mapper.keys())))
+    if len(dif) != 0:
+        raise Exception("You haven't contributed distributed all LUCAS classes over your output target variables. You are missing the classes: {}".format(dif))
+    return mapper
+
+def getReferenceSet(aoi, nr_samples_per_polygon, target_classes):
+    if len(aoi.value) == 0:
+        raise ValueError("Please upload an area of interest first in the widget menu above!")
+
+    mask = gpd.GeoDataFrame.from_features(json.loads(list(aoi.value.values())[0]["content"])).set_crs('epsg:4326')
+
+    print("Loading in the LUCAS Copernicus dataset...")
+    data = gpd.read_file("https://artifactory.vgt.vito.be/auxdata-public/openeo/LUCAS_2018_Copernicus.gpkg",mask=mask)
+
+    if data.empty:
+        raise ValueError("Your masked area is located outside of Europe or so small that no training data can be found within it")
+
+    print("Finished loading data.")
+    print("Extracting points and converting target labels...")
+    lucas_points = pd.concat([data]+[data.copy()]*(nr_samples_per_polygon.value-1), ignore_index=True)
+    lucas_points["geometry"] = lucas_points["geometry"].apply(extract_point_from_polygon)
+    y = lucas_points[["LC1", "geometry"]].copy()
+    mapper = mapTargetDataToNumerical(target_classes)
+    y["LC1"] = y["LC1"].apply(lambda x: mapper[x[:2]+"0"])
+    y = y.rename(columns={"LC1":"target"})
+    print("Finished extracting points and converting target labels")
+    return y
 
 
 ## C10 Broadleaved woodland    59082
@@ -274,3 +316,12 @@ def extract_point_from_polygon(shp):
 # lucas_data.to_file("lucas.gpkg", driver="GPKG")
 
 
+
+
+
+### THIS WAS USED TO STORE LUCAS COPERNICUS set
+# lucas_data = gpd.read_file("lucas/LUCAS_2018_Copernicus_polygons.shp")
+# lucas_data["POINT_ID"] = lucas_data["POINT_ID"].astype("int64")
+# lucas_attrs = pd.read_csv("lucas/LUCAS_2018_Copernicus_attributes.csv")
+# data = lucas_data.merge(lucas_attrs, on='POINT_ID')
+# data.to_file('lucas/LUCAS_2018_Copernicus.gpkg', driver='GPKG')
