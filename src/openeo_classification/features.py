@@ -22,7 +22,8 @@ job_options = {
         "executor-memory": "2G",
         "executor-memoryOverhead": "2G",
         "executor-cores": "1",
-        "max-executors": "100"
+        "max-executors": "100",
+        "soft-errors": "true"
 }
 
 def _calculate_intervals(start_date, end_date, stepsize = 10, overlap = 10):
