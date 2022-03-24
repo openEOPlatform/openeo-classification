@@ -94,7 +94,8 @@ def sentinel2_features(start_date, end_date, connection_provider, provider,proce
     else:
         s2._pg.arguments['featureflags'] = {}
 
-    s2._pg.arguments['featureflags']['tile_size'] = processing_opts.get("tile_size",256)
+    s2._pg.arguments['featureflags']['tilesize'] = processing_opts.get("tile_size",256)
+    #s2._pg.arguments['featureflags']['experimental'] = True
 
     if not sampling:
         s2 = cropland_mask(s2, c, provider)
@@ -207,7 +208,15 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
                            bands=["VH", "VV"],
                            properties=properties
                            )
-    # s1._pg.arguments['featureflags'] = temporal_partition_options
+
+    if (provider.lower() == "creodias"):
+        s1._pg.arguments['featureflags'] = creo_partition_options
+    else:
+        s1._pg.arguments['featureflags'] = {}
+
+    s1._pg.arguments['featureflags']['experimental'] = False
+
+
     if (provider.upper() != "TERRASCOPE"):
         s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"1","tile_size":proccessing_opts.get("tile_size",256), "otb_memory":128})
 
