@@ -51,7 +51,9 @@ def UTM_100km_EU27()->gpd.GeoDataFrame:
 
 def UTM_100km_World()->gpd.GeoDataFrame:
     world = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
-    df = gpd.read_file("https://artifactory.vgt.vito.be/auxdata-public/grids/utm-tiling-grid-100km.gpkg",mask=world)
+    world = world[world.continent!='Antarctica'][world.continent!='Seven seas (open ocean)']
+    countries = world[~world.name.isin(["Greenland","Iceland"])]
+    df = gpd.read_file("https://artifactory.vgt.vito.be/auxdata-public/grids/utm-tiling-grid-100km.gpkg",mask=countries)
     return df
 
 def cropland_EU27()->gpd.GeoDataFrame:

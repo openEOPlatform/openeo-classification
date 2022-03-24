@@ -148,7 +148,7 @@ corrupt_jsons = [
 for year in years:
     for prov in ["terrascope", "sentinelhub"]:
         for zone in zones:
-            features = load_features(year, connection_provider = connection, provider = prov, sampling=True)
+            features = load_features(year, connection_provider = connection, provider = prov, sampling=True,processing_opts=dict(tile_size=128))
             for fnp in glob.glob(str(fp / prov / ("*"+str(year)+"_zone"+str(zone)+"*"))):
                 if fnp in corrupt_jsons:
                     continue
