@@ -135,14 +135,14 @@ def load_lc_features(feature_raster, aoi, start_date, end_date, stepsize_s2=10, 
 def getStartingWidgets():
     train_test_split = widgets.FloatSlider(value=0.75, min=0, max=1.0, step=0.05)
     algorithm = widgets.Dropdown(options=['Random Forest'], value='Random Forest', description='Model:', disabled=True)
-    nrtrees = widgets.IntText(value=250, description='Nr trees:')
-    mtry = widgets.IntText(value=3, description="Mtry:")
+    nrtrees = widgets.IntText(value=1000, description='Nr trees:')
+    mtry = widgets.IntText(value=10, description="Mtry:")
     fusion_technique = widgets.RadioButtons(options=['Feature fusion', 'Decision fusion'])
     aoi = widgets.FileUpload(accept='.geojson,.shp',multiple=False, #style=widgets.ButtonStyle(button_color='#F0F0F0'), 
                              layout=widgets.Layout(width='20em'), description="Upload AOI")
     strat_layer = widgets.FileUpload(accept='.geojson,.shp',multiple=False, 
                                      layout=widgets.Layout(width='20em'), description="Upload stratification")
-    include_mixed_pixels = widgets.RadioButtons(options=['Yes', 'No'])
+    # include_mixed_pixels = widgets.RadioButtons(options=['Yes', 'No'])
     start_date = widgets.DatePicker(description='Start date', value=datetime.date(2018,1,1))
     end_date = widgets.DatePicker(description='End date', value=datetime.date(2018,12,31))
     nr_targets = widgets.IntSlider(value=10, min=2, max=37, step=1)
@@ -154,12 +154,12 @@ def getStartingWidgets():
     display(widgets.Box( [ widgets.Label(value='S1 / S2 fusion:'), fusion_technique ]))
     display(aoi)
     display(strat_layer)
-    display(widgets.Box( [ widgets.Label(value='Include mixed pixels:'), include_mixed_pixels ]))
+    # display(widgets.Box( [ widgets.Label(value='Include mixed pixels:'), include_mixed_pixels ]))
     display(start_date)
     display(end_date)
     display(widgets.Box( [ widgets.Label(value='Select the amount of target classes:'), nr_targets ]))
     display(widgets.Box( [ widgets.Label(value='Select the amount of times you want to point sample each reference polygon:'), nr_spp ]))
-    return train_test_split, algorithm, nrtrees, mtry, fusion_technique, aoi, strat_layer, include_mixed_pixels, start_date, end_date, nr_targets, nr_spp
+    return train_test_split, algorithm, nrtrees, mtry, fusion_technique, aoi, strat_layer, start_date, end_date, nr_targets, nr_spp
 
 
 def getSelectMultiple():
