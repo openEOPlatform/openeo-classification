@@ -16,7 +16,7 @@ creo_partition_options = {
         "tilesize": 256
 }
 job_options = {
-        "driver-memory": "2G",
+        "driver-memory": "4G",
         "driver-memoryOverhead": "4G",
         "driver-cores": "2",
         "executor-memory": "2G",
@@ -76,19 +76,19 @@ def sentinel2_features(start_date, end_date, connection_provider, provider,proce
     s2_id = "SENTINEL2_L2A"
     if (provider.upper() == "TERRASCOPE"):
         s2_id = "TERRASCOPE_S2_TOC_V2"
-        props = {
-            "eo:cloud_cover": lambda v: v == 80
-        }
-    elif (provider.upper() == "CREODIAS"):
-        props = {
-            "provider:backend": lambda v: v == "creodias",
-            "eo:cloud_cover": lambda v: v == 80,
-        }
+        # props = {
+        #     "eo:cloud_cover": lambda v: v == 80 ## moet sowieso <= zijn?
+        # }
+    # elif (provider.upper() == "CREODIAS"):
+    #     props = {
+    #         "provider:backend": lambda v: v == "creodias",
+    #         "eo:cloud_cover": lambda v: v == 80,
+    #     }
     c = connection_provider()
     s2 = c.load_collection(s2_id,
                            temporal_extent=temp_ext_s2,
-                           bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
-                           properties=props)
+                           bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"])#,
+                           # properties=props)
 
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
@@ -196,18 +196,18 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
     properties = {
         #    "provider:backend": lambda v: v == "creo",
     }
-    if relativeOrbit is not None:
-        properties["relativeOrbitNumber"] = lambda p: p == relativeOrbit
-    if orbitDirection is not None:
-        properties["orbitDirection"] = lambda p: p == orbitDirection
+    # if relativeOrbit is not None:
+    #     properties["relativeOrbitNumber"] = lambda p: p == relativeOrbit
+    # if orbitDirection is not None:
+    #     properties["orbitDirection"] = lambda p: p == orbitDirection
 
-    if provider.upper()=="SENTINELHUB":
-        properties["polarization"] = lambda p: p == "DV"
+    # if provider.upper()=="SENTINELHUB":
+    #     properties["polarization"] = lambda p: p == "DV"
 
     s1 = c.load_collection(s1_id,
                            temporal_extent=temp_ext_s1,
-                           bands=["VH", "VV"],
-                           properties=properties
+                           bands=["VH", "VV"]#,
+                           # properties=properties
                            )
 
     if (provider.lower() == "creodias"):
