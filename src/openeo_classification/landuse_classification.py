@@ -52,8 +52,7 @@ lookup_lucas = {
 }
 
 
-def load_lc_features(feature_raster, aoi, start_date, end_date, stepsize_s2=10, stepsize_s1=12):
-    provider = "terrascope"
+def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12):
     c = lambda: connection("openeo-dev.vito.be")
 
     idx_dekad = sentinel2_features(start_date, end_date, c, provider, processing_opts={}, sampling=True, stepsize=stepsize_s2)
@@ -75,31 +74,31 @@ def load_lc_features(feature_raster, aoi, start_date, end_date, stepsize_s2=10, 
 def getStartingWidgets():
     train_test_split = widgets.FloatSlider(value=0.75, min=0, max=1.0, step=0.05)
     algorithm = widgets.Dropdown(options=['Random Forest'], value='Random Forest', description='Model:', disabled=True)
-    nrtrees = widgets.IntText(value=1000, description='Nr trees:')
-    mtry = widgets.IntText(value=10, description="Mtry:")
-    fusion_technique = widgets.RadioButtons(options=['Feature fusion', 'Decision fusion'])
-    aoi = widgets.FileUpload(accept='.geojson,.shp',multiple=False, #style=widgets.ButtonStyle(button_color='#F0F0F0'), 
-                             layout=widgets.Layout(width='20em'), description="Upload AOI")
-    strat_layer = widgets.FileUpload(accept='.geojson,.shp',multiple=False, 
-                                     layout=widgets.Layout(width='20em'), description="Upload stratification")
+    nrtrees = widgets.IntText(value=200, description='Nr trees:')
+    # mtry = widgets.IntText(value=10, description="Mtry:")
+    fusion_technique = widgets.RadioButtons(options=['Feature fusion', 'Decision fusion'], disabled=True)
+    aoi_sampling = widgets.FileUpload(accept='.geojson,.shp',multiple=False, #style=widgets.ButtonStyle(button_color='#F0F0F0'),
+                             layout=widgets.Layout(width='20em'), description="Upload AOI sampling")
+    aoi_inference = widgets.FileUpload(accept='.geojson,.shp',multiple=False, #style=widgets.ButtonStyle(button_color='#F0F0F0'),
+                             layout=widgets.Layout(width='20em'), description="Upload AOI inference")
     # include_mixed_pixels = widgets.RadioButtons(options=['Yes', 'No'])
-    start_date = widgets.DatePicker(description='Start date', value=datetime.date(2018,1,1))
-    end_date = widgets.DatePicker(description='End date', value=datetime.date(2018,12,31))
-    nr_targets = widgets.IntSlider(value=10, min=2, max=37, step=1)
+    start_date = widgets.DatePicker(description='Start date', value=datetime.date(2018,3,1))
+    end_date = widgets.DatePicker(description='End date', value=datetime.date(2018,10,31))
+    nr_targets = widgets.IntSlider(value=8, min=2, max=37, step=1)
     nr_spp = widgets.IntSlider(value=2, min=1, max=6, step=1)
 
     display(widgets.Box( [ widgets.Label(value='Train / test split:'), train_test_split ]))
     display(algorithm)
-    display(widgets.Box( [ widgets.Label(value="Hyperparameters RF model:"), nrtrees, mtry ]))
+    display(widgets.Box( [ widgets.Label(value="Hyperparameters RF model:"), nrtrees ]))
     display(widgets.Box( [ widgets.Label(value='S1 / S2 fusion:'), fusion_technique ]))
-    display(aoi)
-    display(strat_layer)
+    display(aoi_sampling)
+    display(aoi_inference)
     # display(widgets.Box( [ widgets.Label(value='Include mixed pixels:'), include_mixed_pixels ]))
     display(start_date)
     display(end_date)
     display(widgets.Box( [ widgets.Label(value='Select the amount of target classes:'), nr_targets ]))
     display(widgets.Box( [ widgets.Label(value='Select the amount of times you want to point sample each reference polygon:'), nr_spp ]))
-    return train_test_split, algorithm, nrtrees, mtry, fusion_technique, aoi, strat_layer, start_date, end_date, nr_targets, nr_spp
+    return train_test_split, algorithm, nrtrees, fusion_technique, aoi_sampling, aoi_inference, start_date, end_date, nr_targets, nr_spp
 
 
 def getSelectMultiple():
@@ -231,3 +230,36 @@ def getReferenceSet(aoi, nr_samples_per_polygon, target_classes):
     y = y.rename(columns={"LC1":"target"})
     print("Finished extracting points and converting target labels")
     return y
+
+def getStrata(aoi_sampling, aoi_inference):
+    strata_sampling = gpd.GeoDataFrame.from_features(json.loads(aoi_sampling.data[0]))
+    strata_inference = gpd.GeoDataFrame.from_features(json.loads(aoi_inference.data[0]))
+    
+    ## als beiden lengte 1: prima
+    if len(strata_sampling) == 1 and len(strata_inference)==1:
+        strata_sampling["stratum"] = ["stratum0"]
+        strata_inference["stratum"] = ["stratum0"]
+        return strata_sampling, strata_inference
+
+    ## als een van twee langer: raise exception
+    if len(strata_sampling) < len(strata_inference):
+        raise ValueError("Your inference AOI has more strata then your sampling AOI.")
+
+    ## als meerdere strata maar hebben geen stratum kolom
+    if "stratum" not in strata_sampling.columns:
+        raise ValueError("Your sampling AOI contains stratification polygons, however does not contain a field called stratum")
+    if "stratum" not in strata_inference.columns:
+        raise ValueError("Your inference AOI contains stratification polygons, however does not contain a field called stratum")
+
+
+    if len(set(strata_sampling["stratum"]) - set(strata_inference["stratum"])) > 0:
+        raise ValueError("Your sampling set contains strata that do not occur in your inference strata")
+
+    return strata_sampling, strata_inference
+
+
+
+
+
+
+
