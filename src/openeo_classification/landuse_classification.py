@@ -10,6 +10,10 @@ import numpy as np
 from shapely.geometry import Point
 import geopandas as gpd
 import json
+import rasterio
+import matplotlib.pyplot as plt
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix,plot_confusion_matrix, ConfusionMatrixDisplay
+
 
 lookup_lucas = {
 	"A00": "Artificial land",
@@ -169,7 +173,7 @@ def extract_point_from_polygon(shp):
     """
     within = False
     while not within:
-        utm_zone_nr = utm.from_latlon(*shp.bounds[0:2])[2]
+        utm_zone_nr = utm.from_latlon(*shp.bounds[0:2][::-1])[2]
         epsg_utm = _get_epsg(shp.bounds[0], utm_zone_nr)
         project_latlon_to_utm = pyproj.Transformer.from_crs(pyproj.CRS('EPSG:4326'),
                     pyproj.CRS(epsg_utm),
@@ -259,7 +263,39 @@ def getStrata(aoi_sampling, aoi_inference):
 
 
 
+def _get_coords(shp):
+    p = [coord for coords_list in shp.coords[:] for coord in coords_list]
+    coord_info = utm.from_latlon(*p)
+    return pd.Series([coord_info[2], coord_info[3]])
+
+def buf(x):
+    shp = x.iloc[0]
+    utm_zone_nr = utm.from_latlon(*shp.bounds[0:2][::-1])[2]
+    epsg_utm = _get_epsg(shp.bounds[0], utm_zone_nr)
+    return x.to_crs(epsg_utm).buffer(10,cap_style=3).to_crs(4326)
 
 
 
+def calculate_validation_metrics(path_to_test_geojson='validation_prediction/y_test.geojson', 
+                                 path_to_test_gtiff='validation_prediction/y_test/openEO.tif'):
+    gdf = gpd.read_file(path_to_test_geojson).to_crs(32631)
+    coord_list = [(x,y) for x,y in zip(gdf['geometry'].x , gdf['geometry'].y)]
+    src = rasterio.open(path_to_test_gtiff)
+    gdf['predicted'] = [x[0] for x in src.sample(coord_list)]
+    print("The total amount of test samples you supplied is {}. Of these, {} could not be matched to the coordinates of your y samples. If this is more than a few samples, please check if your CRS is aligned.".format(
+        str(len(gdf)), str(gdf["predicted"].isnull().sum())))
+    gdf = gdf.dropna().drop("geometry",axis=1)
+    gdf["predicted"] = gdf["predicted"].astype(int)
 
+    acc = accuracy_score(gdf["target"],gdf["predicted"])
+    print("Accuracy on test set: "+str(acc)[0:5])
+    prec, rec, fscore, sup = precision_recall_fscore_support(gdf["target"],gdf["predicted"])
+
+    final_res = {
+            "accuracy": acc,
+            "precision": prec.tolist(),
+            "recall": rec.tolist(),
+            "fscore": fscore.tolist(),
+            "support": sup.tolist()
+    }
+    return gdf, final_res
