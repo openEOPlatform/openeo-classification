@@ -5,7 +5,7 @@ tests_require = [
 ]
 
 setup(
-    name="openeo-classification",
+    name="openeo_classification",
     version="0.1.0",
     description='openEO based classification workflows &amp; utilities, for landcover and crop mapping usecases.',
     packages=find_packages(
@@ -24,5 +24,4 @@ setup(
     ],
     tests_require=tests_require,
     extras_require={"dev": tests_require},
-
 )
