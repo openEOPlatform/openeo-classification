@@ -10,6 +10,7 @@ import numpy as np
 from pathlib import Path
 import json
 
+# TODO: invalid reference (https://github.com/openEOPlatform/openeo-classification/issues/2)
 df = pd.read_csv("resources/training_data/final_features.csv",index_col=0)
 
 print(df.head())
