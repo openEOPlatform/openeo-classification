@@ -7,6 +7,10 @@ import json
 from shapely.geometry import mapping,shape,GeometryCollection
 import geopandas as gpd
 
+
+block25_31UFS = [630720, 5669280, 640960, 5679520]
+
+
 @pytest.fixture
 def some_polygons():
 
