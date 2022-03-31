@@ -1,7 +1,6 @@
 import geopandas as gpd
-from importlib.resources import open_text
-import openeo_classification.resources.grids as grids
-import json
+
+from openeo_classification.resources import read_json_resource
 
 EU27 = [
 "France",
@@ -56,8 +55,8 @@ def UTM_100km_World()->gpd.GeoDataFrame:
     df = gpd.read_file("https://artifactory.vgt.vito.be/auxdata-public/grids/utm-tiling-grid-100km.gpkg",mask=countries)
     return df
 
-def cropland_EU27()->gpd.GeoDataFrame:
-    f = open_text(grids,"cropland_20km.geojson")
-    features = json.load(f)
+
+def cropland_EU27() -> gpd.GeoDataFrame:
+    features = read_json_resource("openeo_classification.resources.grids", "cropland_20km.geojson")
     df = gpd.GeoDataFrame.from_features(features)
     return df

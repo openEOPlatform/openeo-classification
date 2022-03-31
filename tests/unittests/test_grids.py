@@ -15,3 +15,8 @@ def test_utm_100km():
     assert len(df) == 662
 
     print(df)
+
+
+def test_cropland_EU27():
+    df = grids.cropland_EU27()
+    assert len(df) == 11286

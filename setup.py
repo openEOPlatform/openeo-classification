@@ -12,7 +12,11 @@ setup(
         where="src"
     ),
     package_dir={"": "src"},
-    include_package_data=True,
+    package_data={
+        "openeo_classification.resources": [
+            "grids/*.geojson",
+        ]
+    },
     install_requires=[
         "setuptools",
         "openeo>=0.9.0a1",
