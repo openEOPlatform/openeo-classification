@@ -1,7 +1,7 @@
+from functools import cache, partial
+
 import openeo
 from openeo import Connection
-from functools import cache,partial
-
 
 _default_url = "openeo-dev.vito.be"
 

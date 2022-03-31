@@ -1,19 +1,19 @@
-import pandas as pd
-from openeo_classification.features import *
-import ipywidgets as widgets
 import datetime
-from openeo_classification.connection import connection
-import utm
-import pyproj
-import shapely
-import numpy as np
-from shapely.geometry import Point
-import geopandas as gpd
 import json
-import rasterio
-import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix,plot_confusion_matrix, ConfusionMatrixDisplay
 
+import geopandas as gpd
+import ipywidgets as widgets
+import numpy as np
+import pandas as pd
+import pyproj
+import rasterio
+import shapely
+import utm
+from shapely.geometry import Point
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+
+from openeo_classification.connection import connection
+from openeo_classification.features import sentinel2_features, compute_statistics, sentinel1_features
 
 lookup_lucas = {
 	"A00": "Artificial land",
