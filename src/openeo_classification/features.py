@@ -94,9 +94,9 @@ def sentinel2_features(start_date, end_date, connection_provider, provider,proce
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
     else:
-        s2._pg.arguments['featureflags'] = {}
+        s2._pg.arguments['featureflags'] = processing_opts
 
-    s2._pg.arguments['featureflags']['tilesize'] = processing_opts.get("tile_size",256)
+    # s2._pg.arguments['featureflags']['tilesize'] = processing_opts.get("tile_size",256)
     #s2._pg.arguments['featureflags']['experimental'] = True
 
     if not sampling:
@@ -187,7 +187,7 @@ def compute_statistics(base_features, start_date, end_date, stepsize):
     return features
 
 
-def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terrascope", proccessing_opts:dict={}, orbitDirection=None, relativeOrbit=None,sampling=False):
+def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terrascope", processing_opts:dict={}, orbitDirection=None, relativeOrbit=None,sampling=False):
     c = connection_provider()
     temp_ext_s1 = [start_date.isoformat(), end_date.isoformat()]
     if (provider.upper() == "TERRASCOPE"):
@@ -214,13 +214,13 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
     if (provider.lower() == "creodias"):
         s1._pg.arguments['featureflags'] = creo_partition_options
     else:
-        s1._pg.arguments['featureflags'] = {}
+        s1._pg.arguments['featureflags'] = processing_opts
 
     s1._pg.arguments['featureflags']['experimental'] = False
 
 
     if (provider.upper() != "TERRASCOPE"):
-        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":"1","tile_size":proccessing_opts.get("tile_size",256), "otb_memory":128})
+        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid")#,options={"implementation_version":"1","tile_size":processing_opts.get("tile_size",256), "otb_memory":128})
 
     if not sampling:
         s1 = cropland_mask(s1, c, provider)
@@ -235,4 +235,3 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
     # scale to int16
     s1 = s1.linear_scale_range(0, 30, 0,30000)
     return s1
-
