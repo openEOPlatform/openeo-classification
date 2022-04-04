@@ -12,7 +12,8 @@ import geopandas as gpd
 import json
 import rasterio
 import matplotlib.pyplot as plt
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix,plot_confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from openeo.processes import array_concat, ProcessBuilder, if_, is_nodata
 
 
 lookup_lucas = {
@@ -56,15 +57,43 @@ lookup_lucas = {
 }
 
 
-def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12):
+
+def compute_statistics_fill_nan(base_features, start_date, end_date, stepsize):
+    """
+    Computes statistics over a datacube.
+    For correct statistics, the datacube needs to be preprocessed to contain observation at equitemporal intervals, without nodata values.
+
+    @param base_features:
+    @return:
+    """
+    def computeStats(input_timeseries: ProcessBuilder, sample_stepsize, offset):
+        tsteps = list([input_timeseries.array_element(offset + sample_stepsize * index) for index in range(0, 6)])
+        tsteps[0] = if_(is_nodata(tsteps[0]), tsteps[1], tsteps[0])
+        tsteps[5] = if_(is_nodata(tsteps[5]), tsteps[4], tsteps[5])
+        return array_concat(
+            array_concat(input_timeseries.quantiles(probabilities=[0.25, 0.5, 0.75]), input_timeseries.sd()), tsteps)
+
+    tot_samples = (end_date - start_date).days // stepsize
+    nr_tsteps = 6
+    sample_stepsize = tot_samples // nr_tsteps
+    offset = int(sample_stepsize/2 + (tot_samples%nr_tsteps)/2)
+
+    features = base_features.apply_dimension(dimension='t', target_dimension='bands', process=lambda x: computeStats(x, sample_stepsize, offset))#.apply(lambda x: x.linear_scale_range(-500, 500, -50000, 50000))
+    tstep_labels = ["t" + str(offset + sample_stepsize * index) for index in range(0, 6)]
+    all_bands = [band + "_" + stat for band in base_features.metadata.band_names for stat in
+                 ["p25", "p50", "p75", "sd"] + tstep_labels]
+    features = features.rename_labels('bands', all_bands)
+    return features
+
+def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12, processing_opts={}):
     c = lambda: connection("openeo-dev.vito.be")
 
-    idx_dekad = sentinel2_features(start_date, end_date, c, provider, processing_opts={}, sampling=True, stepsize=stepsize_s2)
-    idx_features = compute_statistics(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
+    idx_dekad = sentinel2_features(start_date, end_date, c, provider, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2)
+    idx_features = compute_statistics_fill_nan(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
 
-    s1_dekad = sentinel1_features(start_date, end_date, c, provider, processing_opts={}, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
+    s1_dekad = sentinel1_features(start_date, end_date, c, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
     s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
-    s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1)
+    s1_features = compute_statistics_fill_nan(s1_dekad, start_date, end_date, stepsize=stepsize_s1)
 
     features = idx_features.merge_cubes(s1_features)
 
@@ -235,7 +264,7 @@ def getReferenceSet(aoi, nr_samples_per_polygon, target_classes):
     print("Finished extracting points and converting target labels")
     return y
 
-def getStrata(aoi_sampling, aoi_inference):
+def getStrata(aoi_sampling, aoi_inference, strat_col_label="stratum"):
     strata_sampling = gpd.GeoDataFrame.from_features(json.loads(aoi_sampling.data[0]))
     strata_inference = gpd.GeoDataFrame.from_features(json.loads(aoi_inference.data[0]))
     
@@ -250,13 +279,13 @@ def getStrata(aoi_sampling, aoi_inference):
         raise ValueError("Your inference AOI has more strata then your sampling AOI.")
 
     ## als meerdere strata maar hebben geen stratum kolom
-    if "stratum" not in strata_sampling.columns:
-        raise ValueError("Your sampling AOI contains stratification polygons, however does not contain a field called stratum")
-    if "stratum" not in strata_inference.columns:
-        raise ValueError("Your inference AOI contains stratification polygons, however does not contain a field called stratum")
+    if strat_col_label not in strata_sampling.columns:
+        raise ValueError("Your sampling AOI contains stratification polygons, however does not contain a field called {}".format(strat_col_label))
+    if strat_col_label not in strata_inference.columns:
+        raise ValueError("Your inference AOI contains stratification polygons, however does not contain a field called {}".format(strat_col_label))
 
 
-    if len(set(strata_sampling["stratum"]) - set(strata_inference["stratum"])) > 0:
+    if len(set(strata_sampling[strat_col_label]) - set(strata_inference[strat_col_label])) > 0:
         raise ValueError("Your sampling set contains strata that do not occur in your inference strata")
 
     return strata_sampling, strata_inference
@@ -278,7 +307,10 @@ def buf(x):
 
 def calculate_validation_metrics(path_to_test_geojson='validation_prediction/y_test.geojson', 
                                  path_to_test_gtiff='validation_prediction/y_test/openEO.tif'):
-    gdf = gpd.read_file(path_to_test_geojson).to_crs(32631)
+    gdf = gpd.read_file(path_to_test_geojson)
+    utm_zone_nr = utm.from_latlon(*gdf.geometry[0].bounds[:2][::-1])[2]
+    epsg_utm = _get_epsg(gdf.geometry[0].bounds[0], utm_zone_nr)
+    gdf = gdf.to_crs(epsg_utm)
     coord_list = [(x,y) for x,y in zip(gdf['geometry'].x , gdf['geometry'].y)]
     src = rasterio.open(path_to_test_gtiff)
     gdf['predicted'] = [x[0] for x in src.sample(coord_list)]
