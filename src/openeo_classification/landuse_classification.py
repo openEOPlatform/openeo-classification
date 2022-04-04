@@ -1,59 +1,62 @@
-import pandas as pd
-from openeo_classification.features import *
-import ipywidgets as widgets
 import datetime
-from openeo_classification.connection import connection
-import utm
-import pyproj
-import shapely
-import numpy as np
-from shapely.geometry import Point
-import geopandas as gpd
 import json
 import rasterio
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from openeo.processes import array_concat, ProcessBuilder, if_, is_nodata
 
+import geopandas as gpd
+import ipywidgets as widgets
+import numpy as np
+import pandas as pd
+import pyproj
+import rasterio
+import shapely
+import utm
+from shapely.geometry import Point
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+
+from openeo_classification.connection import connection
+from openeo_classification.features import sentinel2_features, compute_statistics, sentinel1_features
 
 lookup_lucas = {
-	"A00": "Artificial land",
-	"A10": "Roofed built-up areas",
-	"A20": "Artificial non-built up areas",
-	"A30": "Other artificial areas",
-	"B00": "Cropland",
-	"B10": "Cereals",
-	"B20": "Root crops",
-	"B30": "Non-permanent industrial crops",
-	"B40": "Dry pulses, vegetables and flowers",
-	"B50": "Fodder crops",
-	"B70": "Permanent crops: fruit trees",
-	"B80": "Other permanent crops",
-	"C00": "Woodland",
-	"C10": "Broadleaved woodland",
-	"C20": "Coniferous woodland",
-	"C30": "Mixed woodland",
-	"D00": "Shrubland",
-	"D10": "Shrubland with sparse tree cover",
-	"B20": "Shrubland without tree cover",
-	"E00": "Grassland",
-	"E10": "Grassland with sparse tree/shrub cover",
-	"E20": "Grassland without tree/shrub cover",
-	"E30": "Spontaneously re-vegetated surfaces",
-	"F00": "Bare land and lichens/moss",
-	"F10": "Rocks and stones",
-	"F20": "Sand",
-	"F30": "Lichens and moss",
-	"F40": "Other bare soil",
-	"G00": "Water areas",
-	"G10": "Inland water bodies",
-	"G20": "Inland running water",
-	"G30": "Transitional water bodies",
-	"G40": "Sea and ocean",
-	"G50": "Glaciers, permanent snow",
-	"H00": "Wetlands",
-	"H10": "Inland wetlands",
-	"H20": "Coastal wetlands"
+    "A00": "Artificial land",
+    "A10": "Roofed built-up areas",
+    "A20": "Artificial non-built up areas",
+    "A30": "Other artificial areas",
+    "B00": "Cropland",
+    "B10": "Cereals",
+    "B20": "Root crops",
+    "B30": "Non-permanent industrial crops",
+    "B40": "Dry pulses, vegetables and flowers",
+    "B50": "Fodder crops",
+    "B70": "Permanent crops: fruit trees",
+    "B80": "Other permanent crops",
+    "C00": "Woodland",
+    "C10": "Broadleaved woodland",
+    "C20": "Coniferous woodland",
+    "C30": "Mixed woodland",
+    "D00": "Shrubland",
+    "D10": "Shrubland with sparse tree cover",
+    "B20": "Shrubland without tree cover",
+    "E00": "Grassland",
+    "E10": "Grassland with sparse tree/shrub cover",
+    "E20": "Grassland without tree/shrub cover",
+    "E30": "Spontaneously re-vegetated surfaces",
+    "F00": "Bare land and lichens/moss",
+    "F10": "Rocks and stones",
+    "F20": "Sand",
+    "F30": "Lichens and moss",
+    "F40": "Other bare soil",
+    "G00": "Water areas",
+    "G10": "Inland water bodies",
+    "G20": "Inland running water",
+    "G30": "Transitional water bodies",
+    "G40": "Sea and ocean",
+    "G50": "Glaciers, permanent snow",
+    "H00": "Wetlands",
+    "H10": "Inland wetlands",
+    "H20": "Coastal wetlands"
 }
 
 
@@ -178,13 +181,13 @@ def getSelectMultiple():
     description='Target class')
 
 def getTargetClasses(nr_targets):
-	target_classes = {}
-	for i in range(nr_targets.value):
-	    target_classes["target"+str(i)] = getSelectMultiple()
+    target_classes = {}
+    for i in range(nr_targets.value):
+        target_classes["target"+str(i)] = getSelectMultiple()
 
-	for target_selector in target_classes.values():
-	    display(target_selector)
-	return target_classes
+    for target_selector in target_classes.values():
+        display(target_selector)
+    return target_classes
 
 
 def _get_epsg(lat, zone_nr):

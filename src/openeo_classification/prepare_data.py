@@ -102,50 +102,50 @@ download_data = False
 # 			con.job(row["id"]).get_results().download_files(job_path)
 
 def load_netcdfs():
-	job_stats = pd.read_csv(str(base_path / job_file))
-	finished = job_stats[job_stats["status"]=="finished"]
-	band_names_s2 = ["B06", "B12"] + ["NDVI", "NDMI", "NDGI", "ANIR", "NDRE1", "NDRE2", "NDRE5"]
-	band_names_s1 = ["ratio", "VV", "VH"]
-	tstep_labels_s2 = ["t4","t7","t10","t13","t16","t19"]
-	tstep_labels_s1 = ["t2","t5","t8","t11","t14","t17"]
-	features_s2 = [band + "_" + stat for band in band_names_s2 for stat in ["p25", "p50", "p75", "sd"] + tstep_labels_s2]
-	features_s1 = [band + "_" + stat for band in band_names_s1 for stat in ["p25", "p50", "p75", "sd"] + tstep_labels_s1]
-	df = pd.DataFrame(columns=["id"] + features_s2 + features_s1)
+    job_stats = pd.read_csv(str(base_path / job_file))
+    finished = job_stats[job_stats["status"]=="finished"]
+    band_names_s2 = ["B06", "B12"] + ["NDVI", "NDMI", "NDGI", "ANIR", "NDRE1", "NDRE2", "NDRE5"]
+    band_names_s1 = ["ratio", "VV", "VH"]
+    tstep_labels_s2 = ["t4","t7","t10","t13","t16","t19"]
+    tstep_labels_s1 = ["t2","t5","t8","t11","t14","t17"]
+    features_s2 = [band + "_" + stat for band in band_names_s2 for stat in ["p25", "p50", "p75", "sd"] + tstep_labels_s2]
+    features_s1 = [band + "_" + stat for band in band_names_s1 for stat in ["p25", "p50", "p75", "sd"] + tstep_labels_s1]
+    df = pd.DataFrame(columns=["id"] + features_s2 + features_s1)
 
-	for index, roww in finished.iterrows():
-		print(roww["id"])
-		for fnp in glob.glob(str(base_path / "netcdfs" / roww["id"] / "*.nc")):
-			ds_orig = nc.Dataset(fnp)
-			p = re.compile(r'.*\\netcdfs\\([0-9a-z-]+)\\openEO_([0-9])+.nc')
-			job_id = p.match(fnp).group(1)
-			number = p.match(fnp).group(2)
-			fp = roww["fp"]
-			p = re.compile(r'.*sampleable_polygons_year([0-9]+)_zone([0-9]+)_id([0-9]+)_p([0-9]).json')
-			crop_id = p.match(fp).group(3)
-			with open(fp) as fn:
-			    pol = fn.read()
-			md = json.loads(pol)
-			row = {}
-			try:
-				for feat in features_s2+features_s1:
-					row[feat] = [np.mean(ds_orig[feat])]
-			except:
-				continue
-			# if int(row["VH_t16"][0]) == int(65535):
-			# 	print("Job {} file {} contains N/A values. Maybe rerun the feature?".format(job_id,number))
-			for i,feature in enumerate(md["features"]):
-				if int(i) == int(number):
-					row["groupID"] = str(feature["properties"]["groupID"])
-					row["zoneID"] = str(feature["properties"]["zoneID"])
-					row["id"] = crop_id
-					break
-			# final = pd.concat([
-			# 	roww.reset_index(drop=True), 
-			# 	pd.DataFrame(row)
-			# ],axis=1)
-			final = pd.DataFrame(row)
-			df = pd.concat([df, final], ignore_index = True, axis = 0)
-	df.to_csv("resources/training_data/final_features.csv")
+    for index, roww in finished.iterrows():
+        print(roww["id"])
+        for fnp in glob.glob(str(base_path / "netcdfs" / roww["id"] / "*.nc")):
+            ds_orig = nc.Dataset(fnp)
+            p = re.compile(r'.*\\netcdfs\\([0-9a-z-]+)\\openEO_([0-9])+.nc')
+            job_id = p.match(fnp).group(1)
+            number = p.match(fnp).group(2)
+            fp = roww["fp"]
+            p = re.compile(r'.*sampleable_polygons_year([0-9]+)_zone([0-9]+)_id([0-9]+)_p([0-9]).json')
+            crop_id = p.match(fp).group(3)
+            with open(fp) as fn:
+                pol = fn.read()
+            md = json.loads(pol)
+            row = {}
+            try:
+                for feat in features_s2+features_s1:
+                    row[feat] = [np.mean(ds_orig[feat])]
+            except:
+                continue
+            # if int(row["VH_t16"][0]) == int(65535):
+            # 	print("Job {} file {} contains N/A values. Maybe rerun the feature?".format(job_id,number))
+            for i,feature in enumerate(md["features"]):
+                if int(i) == int(number):
+                    row["groupID"] = str(feature["properties"]["groupID"])
+                    row["zoneID"] = str(feature["properties"]["zoneID"])
+                    row["id"] = crop_id
+                    break
+            # final = pd.concat([
+            # 	roww.reset_index(drop=True),
+            # 	pd.DataFrame(row)
+            # ],axis=1)
+            final = pd.DataFrame(row)
+            df = pd.concat([df, final], ignore_index = True, axis = 0)
+    df.to_csv("resources/training_data/final_features.csv")
 
 
 # download_data()

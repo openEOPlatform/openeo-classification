@@ -80,6 +80,8 @@ def update_statuses(status_df, connection_provider=connection):
               + " is : " + job["status"])
     return status_df
 
+
+# TODO: invalid path reference (https://github.com/openEOPlatform/openeo-classification/issues/2)
 def create_or_load_job_statistics(path = "resources/training_data/job_statistics.csv"):
     if os.path.isfile(path):
         df = pd.read_csv(path)

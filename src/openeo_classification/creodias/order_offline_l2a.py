@@ -8,6 +8,7 @@ from openeogeotrellis.catalogs.creo import CreoCatalogClient
 
 tiles_latvia = ["34VEH", "34UEG","34VFH","34UFG","34UFF","35VLC","35ULB","35ULA","35UMB"]
 
+# TODO: invalid reference (https://github.com/openEOPlatform/openeo-classification/issues/2)
 with open_text(openeo_classification,"result.json") as f:
 
     data = json.load(f)

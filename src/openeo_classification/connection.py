@@ -1,16 +1,18 @@
+from functools import partial, lru_cache
+
 import openeo
 from openeo import Connection
-from functools import cache,partial
-
 
 _default_url = "openeo-dev.vito.be"
 
 def set_backend(url):
     _default_url = url
 
-@cache
+
+@lru_cache(maxsize=None)
 def _cached_connection(url) -> Connection:
     return openeo.connect(url)
+
 
 def connection(url = _default_url) -> Connection:
     """

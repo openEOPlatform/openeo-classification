@@ -1,11 +1,13 @@
+from functools import partial
 from pathlib import Path
+
+from openeo import DataCube
 
 from openeo_classification import features
 from openeo_classification.connection import connection, terrascope_dev, creo
-from functools import partial
-from openeo_classification_tests import block25_31UFS
-from openeo import DataCube, RESTJob as BatchJob
 from openeo_classification.job_management import run_jobs
+from .conftest import block25_31UFS
+
 
 def test_classification_features(some_20km_tiles_with_cropland):
     cube:DataCube = features.load_features(2019, partial(connection,"openeo.creo.vito.be"),provider="creodias")

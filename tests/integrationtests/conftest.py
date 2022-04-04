@@ -1,11 +1,14 @@
-import pytest
-import openeo_classification
-from importlib.resources import read_text,open_text, read_binary
-from openeo_classification.resources.training_data import crops_of_interest
-from openeo_classification.resources.training_data.crops_of_interest import sentinelhub
 import json
-from shapely.geometry import mapping,shape,GeometryCollection
+from importlib.resources import open_text
+
 import geopandas as gpd
+import pytest
+from shapely.geometry import shape, GeometryCollection
+
+from openeo_classification.resources.training_data.crops_of_interest import sentinelhub
+
+block25_31UFS = [630720, 5669280, 640960, 5679520]
+
 
 @pytest.fixture
 def some_polygons():
@@ -19,13 +22,13 @@ def some_20km_tiles():
     return GeometryCollection(LAEA_20km().geometry.sample(10).values)
 
 
-
 @pytest.fixture
 def some_20km_tiles_with_cropland():
     from openeo_classification.grids import cropland_EU27
     df = cropland_EU27()
     sample = df[df['cropland_perc']>50].geometry.sample(10)
     return GeometryCollection(sample.values)
+
 
 @pytest.fixture
 def some_20km_tiles_in_belgium():
