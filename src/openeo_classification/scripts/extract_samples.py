@@ -58,7 +58,7 @@ dataframe = pd.DataFrame({'year':years}).merge(pd.DataFrame({'provider':["sentin
 
 files = dataframe.apply(lambda row:glob.glob(str(fp / row['provider'] / ("*"+str(row['year'])+"_zone"+str(row['zone'])+"*"))),axis=1)
 dataframe['sample_locations'] = files
-dataframe = dataframe.explode(column='sample_locations').dropna(subset=['sample_locations'])
+dataframe = dataframe.explode(column='sample_locations',ignore_index=True).dropna(subset=['sample_locations'])
 extents = dataframe.apply(lambda row: gpd.read_file(row['sample_locations'], crs=4326).unary_union.convex_hull,axis=1)
 dataframe = gpd.GeoDataFrame(dataframe,geometry=extents)
 
