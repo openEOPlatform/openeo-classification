@@ -12,7 +12,7 @@ temporal_partition_options = {
 }
 
 creo_partition_options = {
-        "indexreduction": 7,
+        "indexreduction": 12,
         "temporalresolution": "ByDay",
         "tilesize": 256
 }
@@ -26,6 +26,17 @@ job_options = {
         "max-executors": "100",
         "soft-errors": "true"
 }
+
+creo_job_options = {
+        "driver-memory": "4G",
+        "driver-memoryOverhead": "2G",
+        "driver-cores": "1",
+        "executor-memory": "2G",
+        "executor-memoryOverhead": "2500m",
+        "executor-cores": "4",
+        "executor-request-cores": "400m",
+        "max-executors": "15"
+    }
 
 def _calculate_intervals(start_date, end_date, stepsize = 10, overlap = 10):
     between_steps = timedelta(days=stepsize)
@@ -41,8 +52,8 @@ def _calculate_intervals(start_date, end_date, stepsize = 10, overlap = 10):
 
 
 def load_features(year, connection_provider = connection, provider = "Terrascope", processing_opts={}, sampling=False):
-    start_date = date(year,3,15)
-    end_date = date(year,10,31)
+    start_date = date(int(year),3,15)
+    end_date = date(int(year),10,31)
     stepsize_s2 = 10
     stepsize_s1 = 12
     # idx_dekad, idx_list, s2_list = sentinel2_features(start_date, end_date, connection_provider, provider, sampling=sampling, stepsize=stepsize_s2)

@@ -45,8 +45,11 @@ def run_jobs(df:pd.DataFrame,start_job, outputFile:Path, parallel_jobs=2,connect
 
                 next_job = jobs_to_run.iloc[0]
                 job = start_job(next_job)
-                next_job["status"] = job.status()
-                next_job["id"] = job.job_id
+                if job is not None:
+                    next_job["status"] = job.status()
+                    next_job["id"] = job.job_id
+                else:
+                    next_job["status"] = "skipped"
                 print(next_job)
                 df.loc[next_job.name] = next_job
 

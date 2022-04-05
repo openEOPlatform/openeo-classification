@@ -4,7 +4,7 @@ import pandas as pd
 from shapely.geometry import Point
 import shapely.ops
 import json
-from explore import all_crop_codes
+from .explore import all_crop_codes
 import glob
 import re
 import geopandas as gpd
@@ -36,13 +36,13 @@ def read_f(directory:str = "resources/reference_data/") -> pd.DataFrame:
     print("Loading input data...")
     files = []
     fns = []
-    for fn in glob.glob(directory+"*.json"):
+    for fn in glob.glob(str(directory)+"/*.json"):
         fns.append(re.search(r".*(20.*_POLY_[0-9]{3})_samples.json", fn).group(1))
         files.append(gpd.read_file(fn))
     print("Finished loading data.")
 
     ### LPIS "CT" , "ref_id" , , "year" , "geometry", "zonenumber", "zoneletter" ,  "sample_polygon" (= een punt dat gesamplet is uit de geometry)
-    df_lucas = gpd.read_file(directory+"2018_EU_LUCAS_POINT_110.gpkg")[["CT","geometry"]]
+    df_lucas = gpd.read_file(Path(directory) / "2018_EU_LUCAS_POINT_110.gpkg")[["CT","geometry"]]
     df_lucas["year"] = 2018
     df_lucas["ref_id"] = "2018_EU_LUCAS_POINT_110"
     df_lucas[["zonenumber","zoneletter"]] = df_lucas["geometry"].apply(_get_coords)
