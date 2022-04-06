@@ -82,20 +82,21 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 #                            temporal_extent=temp_ext_s2)
 #     return dem.max_time().resample_cube_spatial(cube)
 
-def sentinel2_features(start_date, end_date, connection_provider, provider,processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median"):
+def sentinel2_features(start_date, end_date, connection_provider, provider,processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median", luc=False):
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
     props = {}
     s2_id = "SENTINEL2_L2A"
-    if (provider.upper() == "TERRASCOPE"):
-        s2_id = "TERRASCOPE_S2_TOC_V2"
-        props = {
-            "eo:cloud_cover": lambda v: v == 80 ## moet sowieso <= zijn?
-        }
-    elif (provider.upper() == "CREODIAS"):
-        props = {
-           # "provider:backend": lambda v: v == "creodias",
-            "eo:cloud_cover": lambda v: v == 80
-        }
+    if not luc:
+        if (provider.upper() == "TERRASCOPE"):
+            s2_id = "TERRASCOPE_S2_TOC_V2"
+            props = {
+                "eo:cloud_cover": lambda v: v == 80 ## moet sowieso <= zijn?
+            }
+        elif (provider.upper() == "CREODIAS"):
+            props = {
+               # "provider:backend": lambda v: v == "creodias",
+                "eo:cloud_cover": lambda v: v == 80
+            }
 
     c = connection_provider()
     s2 = c.load_collection(s2_id,

@@ -4,6 +4,7 @@ import rasterio
 import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from openeo.processes import array_concat, ProcessBuilder, if_, is_nodata
+import xarray as xr
 
 import geopandas as gpd
 import ipywidgets as widgets
@@ -71,6 +72,8 @@ def compute_statistics_fill_nan(base_features, start_date, end_date, stepsize):
     """
     def computeStats(input_timeseries: ProcessBuilder, sample_stepsize, offset):
         tsteps = list([input_timeseries.array_element(offset + sample_stepsize * index) for index in range(0, 6)])
+        tsteps[1] = if_(is_nodata(tsteps[1]), tsteps[2], tsteps[1])
+        tsteps[4] = if_(is_nodata(tsteps[4]), tsteps[3], tsteps[4])
         tsteps[0] = if_(is_nodata(tsteps[0]), tsteps[1], tsteps[0])
         tsteps[5] = if_(is_nodata(tsteps[5]), tsteps[4], tsteps[5])
         return array_concat(
@@ -91,7 +94,7 @@ def compute_statistics_fill_nan(base_features, start_date, end_date, stepsize):
 def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12, processing_opts={}):
     c = lambda: connection("openeo-dev.vito.be")
 
-    idx_dekad = sentinel2_features(start_date, end_date, c, provider, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2)
+    idx_dekad = sentinel2_features(start_date, end_date, c, provider, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2, luc=True)
     idx_features = compute_statistics_fill_nan(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
 
     s1_dekad = sentinel1_features(start_date, end_date, c, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
@@ -309,18 +312,25 @@ def buf(x):
 
 
 def calculate_validation_metrics(path_to_test_geojson='validation_prediction/y_test.geojson', 
-                                 path_to_test_gtiff='validation_prediction/y_test/openEO.tif'):
+                                 path_to_test_raster='validation_prediction/y_test/openEO.nc', output_type="netCDF"):
     gdf = gpd.read_file(path_to_test_geojson)
     utm_zone_nr = utm.from_latlon(*gdf.geometry[0].bounds[:2][::-1])[2]
     epsg_utm = _get_epsg(gdf.geometry[0].bounds[0], utm_zone_nr)
     gdf = gdf.to_crs(epsg_utm)
     coord_list = [(x,y) for x,y in zip(gdf['geometry'].x , gdf['geometry'].y)]
-    src = rasterio.open(path_to_test_gtiff)
-    gdf['predicted'] = [x[0] for x in src.sample(coord_list)]
+    if output_type == "GTiff":
+        src = rasterio.open(path_to_test_raster)
+        gdf['predicted'] = [x[0] for x in src.sample(coord_list)]
+    else:
+        ds = xr.open_dataset(path_to_test_raster)
+        new_coords = list(map(lambda x: (5+x[0]//10 * 10, 5+x[1]//10 * 10), coord_list))
+        gdf["predicted"] = [ds.sel(x=i[0],y=i[1])["var"].values.tolist() for i in new_coords]
+        gdf["predicted"] = gdf["predicted"].where(gdf["predicted"] < 100, np.nan)
     print("The total amount of test samples you supplied is {}. Of these, {} could not be matched to the coordinates of your y samples. If this is more than a few samples, please check if your CRS is aligned.".format(
         str(len(gdf)), str(gdf["predicted"].isnull().sum())))
     gdf = gdf.dropna().drop("geometry",axis=1)
     gdf["predicted"] = gdf["predicted"].astype(int)
+    gdf["target"] = gdf["target"].astype(int)
 
     acc = accuracy_score(gdf["target"],gdf["predicted"])
     print("Accuracy on test set: "+str(acc)[0:5])
