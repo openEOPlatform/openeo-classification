@@ -59,8 +59,11 @@ dataframe = pd.DataFrame({'year':years}).merge(pd.DataFrame({'provider':["sentin
 files = dataframe.apply(lambda row:glob.glob(str(fp / row['provider'] / ("*"+str(row['year'])+"_zone"+str(row['zone'])+"*"))),axis=1)
 dataframe['sample_locations'] = files
 dataframe = dataframe.explode(column='sample_locations',ignore_index=True).dropna(subset=['sample_locations'])
-extents = dataframe.apply(lambda row: gpd.read_file(row['sample_locations'], crs=4326).unary_union.convex_hull,axis=1)
-dataframe = gpd.GeoDataFrame(dataframe,geometry=extents)
+extents = dataframe.apply(lambda row: gpd.read_file(row['sample_locations'], crs=4326),axis=1)
+dataframe = gpd.GeoDataFrame(dataframe,geometry=extents.apply((lambda s: s.unary_union.convex_hull)))
+dataframe['sample_count'] = extents.apply(lambda x:len(x))
+#dataframe = dataframe[~dataframe.zone.isin([30,31]) ]
+
 
 print(f'Found {len(dataframe)} files to sample.' )
 
@@ -69,8 +72,8 @@ def run(row):
     zone = row['zone']
     provider = row['provider']
     fnp = row['sample_locations']
-    features = load_features(year, connection_provider=creo, provider=provider, sampling=True,
-                             processing_opts=dict(tile_size=64))
+    features = load_features(year, connection_provider=creo, provider="creodias", sampling=True,
+                             processing_opts=dict(tilesize=64))
 
     pols = gpd.read_file(fnp, crs=4326)
     pols["geometry"] = pols["geometry"].centroid

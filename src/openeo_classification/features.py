@@ -88,27 +88,28 @@ def sentinel2_features(start_date, end_date, connection_provider, provider,proce
     s2_id = "SENTINEL2_L2A"
     if (provider.upper() == "TERRASCOPE"):
         s2_id = "TERRASCOPE_S2_TOC_V2"
-        # props = {
-        #     "eo:cloud_cover": lambda v: v == 80 ## moet sowieso <= zijn?
-        # }
-    # elif (provider.upper() == "CREODIAS"):
-    #     props = {
-    #         "provider:backend": lambda v: v == "creodias",
-    #         "eo:cloud_cover": lambda v: v == 80,
-    #     }
+        props = {
+            "eo:cloud_cover": lambda v: v == 80 ## moet sowieso <= zijn?
+        }
+    elif (provider.upper() == "CREODIAS"):
+        props = {
+           # "provider:backend": lambda v: v == "creodias",
+            "eo:cloud_cover": lambda v: v == 80
+        }
+
     c = connection_provider()
     s2 = c.load_collection(s2_id,
                            temporal_extent=temp_ext_s2,
-                           bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"])#,
-                           # properties=props)
+                           bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
+                           properties=props)
 
     if(provider.lower()=="creodias"):
         s2._pg.arguments['featureflags'] = creo_partition_options
     else:
         s2._pg.arguments['featureflags'] = processing_opts
 
-    # s2._pg.arguments['featureflags']['tilesize'] = processing_opts.get("tile_size",256)
-    #s2._pg.arguments['featureflags']['experimental'] = True
+    s2._pg.arguments['featureflags']['tilesize'] = processing_opts.get("tilesize",256)
+    s2._pg.arguments['featureflags']['experimental'] = True
 
     if not sampling:
         s2 = cropland_mask(s2, c, provider)
