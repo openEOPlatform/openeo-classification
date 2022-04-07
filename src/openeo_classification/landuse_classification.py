@@ -91,10 +91,29 @@ def compute_statistics_fill_nan(base_features, start_date, end_date, stepsize):
     features = features.rename_labels('bands', all_bands)
     return features
 
-def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12, processing_opts={}):
+def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12, processing_opts={}, index_dict=None):
     c = lambda: connection("openeo-dev.vito.be")
 
-    idx_dekad = sentinel2_features(start_date, end_date, c, provider, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2, luc=True)
+
+    ## NIEUWE WOW
+    if not index_dict:
+        idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]
+        s2_list = ["B06", "B12"]
+        index_dict = {idx: [-1,1] for idx in idx_list}
+        index_dict["ANIR"] = [0,1]
+
+    final_index_dict = {
+        "collection": {
+            "input_range": [0, 8000],
+            "output_range": [0, 30000]
+        },
+        "indices": {
+            index: {"input_range": index_dict[index], "output_range": [0, 30000]} for index in index_dict
+        }
+    }
+
+    print(final_index_dict)
+    idx_dekad = sentinel2_features(start_date, end_date, c, provider, final_index_dict, s2_list, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2, luc=True)
     idx_features = compute_statistics_fill_nan(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
 
     s1_dekad = sentinel1_features(start_date, end_date, c, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
