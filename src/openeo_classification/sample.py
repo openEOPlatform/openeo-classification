@@ -4,7 +4,7 @@ import pandas as pd
 from shapely.geometry import Point
 import shapely.ops
 import json
-from .explore import all_crop_codes
+from explore import all_crop_codes
 import glob
 import re
 import geopandas as gpd
@@ -131,7 +131,7 @@ class SamplePolygons():
                 # epsg_code = utm.from_latlon(*list(*p.coords))
                 ## Negative buffer, so reprojecting to UTM then back to lat/lon
                 utm_zone_nr = utm.from_latlon(*shp.bounds[0:2][::-1])[2]
-                epsg_utm = _get_epsg(shp.bounds[0], utm_zone_nr)
+                epsg_utm = _get_epsg(shp.bounds[1], utm_zone_nr)
                 project_latlon_to_utm = pyproj.Transformer.from_crs(pyproj.CRS('EPSG:4326'),
                             pyproj.CRS(epsg_utm),
                     always_xy=True).transform

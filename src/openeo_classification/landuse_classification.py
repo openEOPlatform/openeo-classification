@@ -228,7 +228,7 @@ def extract_point_from_polygon(shp):
     within = False
     while not within:
         utm_zone_nr = utm.from_latlon(*shp.bounds[0:2][::-1])[2]
-        epsg_utm = _get_epsg(shp.bounds[0], utm_zone_nr)
+        epsg_utm = _get_epsg(shp.bounds[1], utm_zone_nr)
         project_latlon_to_utm = pyproj.Transformer.from_crs(pyproj.CRS('EPSG:4326'),
                     pyproj.CRS(epsg_utm),
             always_xy=True).transform
@@ -325,7 +325,7 @@ def _get_coords(shp):
 def buf(x):
     shp = x.iloc[0]
     utm_zone_nr = utm.from_latlon(*shp.bounds[0:2][::-1])[2]
-    epsg_utm = _get_epsg(shp.bounds[0], utm_zone_nr)
+    epsg_utm = _get_epsg(shp.bounds[1], utm_zone_nr)
     return x.to_crs(epsg_utm).buffer(10,cap_style=3).to_crs(4326)
 
 
@@ -334,7 +334,7 @@ def calculate_validation_metrics(path_to_test_geojson='validation_prediction/y_t
                                  path_to_test_raster='validation_prediction/y_test/openEO.nc', output_type="netCDF"):
     gdf = gpd.read_file(path_to_test_geojson)
     utm_zone_nr = utm.from_latlon(*gdf.geometry[0].bounds[:2][::-1])[2]
-    epsg_utm = _get_epsg(gdf.geometry[0].bounds[0], utm_zone_nr)
+    epsg_utm = _get_epsg(gdf.geometry[0].bounds[1], utm_zone_nr)
     gdf = gdf.to_crs(epsg_utm)
     coord_list = [(x,y) for x,y in zip(gdf['geometry'].x , gdf['geometry'].y)]
     if output_type == "GTiff":
