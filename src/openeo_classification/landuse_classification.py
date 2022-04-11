@@ -18,7 +18,7 @@ from shapely.geometry import Point
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 from openeo_classification.connection import connection
-from openeo_classification.features import sentinel2_features, compute_statistics, sentinel1_features
+from openeo_classification.features2 import sentinel2_features, compute_statistics, sentinel1_features
 
 lookup_lucas = {
     "A00": "Artificial land",
@@ -92,6 +92,10 @@ def compute_statistics_fill_nan(base_features, start_date, end_date, stepsize):
     return features
 
 def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12, processing_opts={}, index_dict=None):
+    """
+    Loads the features used in the dynamic land use cover service
+    @return: features, a datacube containing all calculated features, and the band names of the feature cube returned
+    """
     c = lambda: connection("openeo-dev.vito.be")
 
 
@@ -129,7 +133,10 @@ def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2
     else:
         return features, features.metadata.band_names
     
-def getStartingWidgets():
+def get_starting_widgets():
+    """
+    A helper function that initializes and displays a number of widgets used for determining the specifics of the model building process
+    """
     train_test_split = widgets.FloatSlider(value=0.75, min=0, max=1.0, step=0.05)
     algorithm = widgets.Dropdown(options=['Random Forest'], value='Random Forest', description='Model:', disabled=True)
     nrtrees = widgets.IntText(value=200, description='Nr trees:')
@@ -159,7 +166,10 @@ def getStartingWidgets():
     return train_test_split, algorithm, nrtrees, fusion_technique, aoi_sampling, aoi_inference, start_date, end_date, nr_targets, nr_spp
 
 
-def getSelectMultiple():
+def get_select_multiple():
+    """
+    The widget of the custom target classes
+    """
     return widgets.SelectMultiple(
     options=['A00: Artificial land', 
              'A10: Roofed built-up areas',
@@ -202,10 +212,13 @@ def getSelectMultiple():
     rows=10,
     description='Target class')
 
-def getTargetClasses(nr_targets):
+def get_target_classes(nr_targets):
+    """
+    Used for the determination of custom target classes
+    """
     target_classes = {}
     for i in range(nr_targets.value):
-        target_classes["target"+str(i)] = getSelectMultiple()
+        target_classes["target"+str(i)] = get_select_multiple()
 
     for target_selector in target_classes.values():
         display(target_selector)
@@ -213,6 +226,9 @@ def getTargetClasses(nr_targets):
 
 
 def _get_epsg(lat, zone_nr):
+    """
+    Calculates the epsg code corresponding to a certain latitude given the zone nr
+    """
     if lat >= 0:
         epsg_code = '326' + str(zone_nr)
     else:
@@ -250,7 +266,10 @@ def extract_point_from_polygon(shp):
     return p
 
 
-def mapTargetDataToNumerical(target_classes):
+def map_target_data_to_numerical(target_classes):
+    """
+    Maps the selected target classes to integers that can be used for model training and testing
+    """
     mapper = {}
     counter = 0
     for key in target_classes:
@@ -266,7 +285,10 @@ def mapTargetDataToNumerical(target_classes):
         raise Exception("You haven't contributed distributed all LUCAS classes over your output target variables. You are missing the classes: {}".format(dif))
     return mapper
 
-def getReferenceSet(aoi, nr_samples_per_polygon, target_classes):
+def get_reference_set(aoi, nr_samples_per_polygon, target_classes):
+    """
+    Loads in the reference data corresponding to an AOI, samples points from it and transforms the labels to numerical values
+    """
     if len(aoi.value) == 0:
         raise ValueError("Please upload an area of interest first in the widget menu above!")
 
@@ -283,13 +305,16 @@ def getReferenceSet(aoi, nr_samples_per_polygon, target_classes):
     lucas_points = pd.concat([data]+[data.copy()]*(nr_samples_per_polygon.value-1), ignore_index=True)
     lucas_points["geometry"] = lucas_points["geometry"].apply(extract_point_from_polygon)
     y = lucas_points[["LC1", "geometry"]].copy()
-    mapper = mapTargetDataToNumerical(target_classes)
+    mapper = map_target_data_to_numerical(target_classes)
     y["LC1"] = y["LC1"].apply(lambda x: mapper[x[:2]+"0"])
     y = y.rename(columns={"LC1":"target"})
     print("Finished extracting points and converting target labels")
     return y
 
-def getStrata(aoi_sampling, aoi_inference, strat_col_label="stratum"):
+def get_strata(aoi_sampling, aoi_inference, strat_col_label="stratum"):
+    """
+    Loads the strata from the geojsons provided, and checks whether they are valid
+    """
     strata_sampling = gpd.GeoDataFrame.from_features(json.loads(aoi_sampling.data[0]))
     strata_inference = gpd.GeoDataFrame.from_features(json.loads(aoi_inference.data[0]))
     
@@ -317,12 +342,10 @@ def getStrata(aoi_sampling, aoi_inference, strat_col_label="stratum"):
 
 
 
-def _get_coords(shp):
-    p = [coord for coords_list in shp.coords[:] for coord in coords_list]
-    coord_info = utm.from_latlon(*p)
-    return pd.Series([coord_info[2], coord_info[3]])
-
 def buf(x):
+    """
+    Creates a 10m buffer around the points so that it can be used within filter_spatial
+    """
     shp = x.iloc[0]
     utm_zone_nr = utm.from_latlon(*shp.bounds[0:2][::-1])[2]
     epsg_utm = _get_epsg(shp.bounds[1], utm_zone_nr)
@@ -332,6 +355,9 @@ def buf(x):
 
 def calculate_validation_metrics(path_to_test_geojson='validation_prediction/y_test.geojson', 
                                  path_to_test_raster='validation_prediction/y_test/openEO.nc', output_type="netCDF"):
+    """
+    Calculates a number of validation metrics from the test set and test predictions
+    """
     gdf = gpd.read_file(path_to_test_geojson)
     utm_zone_nr = utm.from_latlon(*gdf.geometry[0].bounds[:2][::-1])[2]
     epsg_utm = _get_epsg(gdf.geometry[0].bounds[1], utm_zone_nr)
