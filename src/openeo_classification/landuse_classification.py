@@ -116,7 +116,6 @@ def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2
         }
     }
 
-    print(final_index_dict)
     idx_dekad = sentinel2_features(start_date, end_date, c, provider, final_index_dict, s2_list, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2, luc=True)
     idx_features = compute_statistics_fill_nan(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
 
