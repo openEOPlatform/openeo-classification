@@ -1,7 +1,6 @@
 import datetime
 import json
 import rasterio
-import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from openeo.processes import array_concat, ProcessBuilder, if_, is_nodata
 import xarray as xr
