@@ -17,7 +17,7 @@ from shapely.geometry import Point
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 from openeo_classification.connection import connection
-from openeo_classification.features2 import sentinel2_features, compute_statistics, sentinel1_features
+from openeo_classification.features import sentinel2_features, compute_statistics, sentinel1_features
 
 lookup_lucas = {
     "A00": "Artificial land",
