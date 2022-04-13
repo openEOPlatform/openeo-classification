@@ -67,10 +67,11 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
             "output_range": [0, 30000]
         },
         "indices": {
-            index: {"input_range": [-1, 1], "output_range": [0, 30000]} for index in idx_list[:-1]
+            index: {"input_range": [-1, 1], "output_range": [0, 30000]} for index in idx_list
         }
     }
     index_dict["indices"]["ANIR"] = {"input_range": [0,1], "output_range": [0,30000]}
+    print(index_dict)
 
     idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, index_dict, s2_list, processing_opts, sampling=sampling, stepsize=stepsize_s2)
 
@@ -100,7 +101,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 def sentinel2_features(start_date, end_date, connection_provider, provider, index_dict, s2_list=[], processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median", luc=False):
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
     props = {}
-    s2_id = "SENTINEL2_L2A"
+    s2_id = "SENTINEL2_L2A_SENTINELHUB"
     if not luc:
         if (provider.upper() == "TERRASCOPE"):
             s2_id = "TERRASCOPE_S2_TOC_V2"
