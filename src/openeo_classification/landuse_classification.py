@@ -90,12 +90,21 @@ def compute_statistics_fill_nan(base_features, start_date, end_date, stepsize):
     features = features.rename_labels('bands', all_bands)
     return features
 
-def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12, processing_opts={}, index_dict=None):
+def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2=10, stepsize_s1=12, processing_opts={}, index_dict=None,connection_provider = connection):
     """
     Loads the features used in the dynamic land use cover service
+
+    @param provider:  One of the following data providers: 'terrascope', 'creodias' or 'sentinelhub'
+    @param feature_raster:
+    @param start_date:
+    @param end_date:
+    @param stepsize_s2:
+    @param stepsize_s1:
+    @param processing_opts:
+
     @return: features, a datacube containing all calculated features, and the band names of the feature cube returned
     """
-    c = lambda: connection("openeo-dev.vito.be")
+
 
 
     ## NIEUWE WOW
@@ -115,10 +124,10 @@ def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2
         }
     }
 
-    idx_dekad = sentinel2_features(start_date, end_date, c, provider, final_index_dict, s2_list, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2, luc=True)
+    idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, final_index_dict, s2_list, processing_opts=processing_opts, sampling=True, stepsize=stepsize_s2, luc=True)
     idx_features = compute_statistics_fill_nan(idx_dekad, start_date, end_date, stepsize=stepsize_s2)
 
-    s1_dekad = sentinel1_features(start_date, end_date, c, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
+    s1_dekad = sentinel1_features(start_date, end_date, connection_provider, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=True, stepsize=stepsize_s1)
     s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
     s1_features = compute_statistics_fill_nan(s1_dekad, start_date, end_date, stepsize=stepsize_s1)
 
