@@ -1,15 +1,21 @@
+import logging
+import os
 import time
 from pathlib import Path
+from typing import Callable
 
-import requests
-
-from openeo_classification.connection import connection,terrascope_dev
-from openeo.util import deep_get
-import os
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
+import requests
+from openeo.util import deep_get
 
-def run_jobs(df:pd.DataFrame,start_job, outputFile:Path, parallel_jobs=2,connection_provider=terrascope_dev):
+from openeo_classification.connection import connection, terrascope_dev
+
+
+_log = logging.getLogger(__name__)
+
+
+def run_jobs(df: pd.DataFrame, start_job: Callable, outputFile: Path, parallel_jobs=2, connection_provider: Callable = terrascope_dev):
     """
     Runs jobs, specified in a dataframe, and tracks parameters.
 
@@ -19,19 +25,20 @@ def run_jobs(df:pd.DataFrame,start_job, outputFile:Path, parallel_jobs=2,connect
     @return:
     """
 
-    df["status"]="not_started"
-    df["id"]="None"
-    df["cpu"]=0
-    df["memory"]=0
-    df["duration"]=0
-
+    # TODO: original dataframe is completely discarded if `outputFile` exists, isn't that weird?
+    #       E.g. New code changes will not be picked up as long as an old/outdated CSV exist.
     if outputFile.is_file():
         df = pd.read_csv(outputFile)
         df['geometry'] = gpd.GeoSeries.from_wkt(df['geometry'])
     else:
+        df["status"] = "not_started"
+        df["id"] = "None"
+        df["cpu"] = 0
+        df["memory"] = 0
+        df["duration"] = 0
         df.to_csv(outputFile,index=False)
 
-
+    # TODO: this will never exit if there are failed/skipped jobs
     while len(df[(df["status"] != "finished")])>0:
         try:
             jobs_to_run = df[df.status == "not_started"]
@@ -58,23 +65,19 @@ def run_jobs(df:pd.DataFrame,start_job, outputFile:Path, parallel_jobs=2,connect
                 time.sleep(60)
 
         except requests.exceptions.ConnectionError as e:
-            print(e)
-
+            _log.warning(f"Skipping connection error: {e}")
 
 
 def running_jobs(status_df):
     return status_df.loc[(status_df["status"] == "queued") | (status_df["status"] == "running") | (status_df["status"] == "created")].index
 
+
 def update_statuses(status_df, connection_provider=connection):
     con = connection_provider()
-    default_usage = {
-        'cpu':{'value':0, 'unit':''},
-        'memory':{'value':0, 'unit':''}
-    }
     for i in running_jobs(status_df):
         job_id = status_df.loc[i, 'id']
         job = con.job(job_id).describe_job()
-        usage = job.get('usage',default_usage)
+        usage = job.get('usage', {})
         status_df.loc[i, "status"] = job["status"]
         status_df.loc[i, "cpu"] = f"{deep_get(usage,'cpu','value',default=0)} {deep_get(usage,'cpu','unit',default='')}"
         status_df.loc[i, "memory"] = f"{deep_get(usage,'memory','value',default=0)} {deep_get(usage,'memory','unit',default='')}"
