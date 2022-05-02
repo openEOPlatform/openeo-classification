@@ -15,7 +15,13 @@ from openeo_classification.connection import connection, terrascope_dev
 _log = logging.getLogger(__name__)
 
 
-def run_jobs(df: pd.DataFrame, start_job: Callable, outputFile: Path, parallel_jobs=2, connection_provider: Callable = terrascope_dev):
+def run_jobs(
+        df: pd.DataFrame,
+        start_job: Callable,
+        outputFile: Path,
+        connection_provider: Callable,
+        parallel_jobs=2,
+):
     """
     Runs jobs, specified in a dataframe, and tracks parameters.
 

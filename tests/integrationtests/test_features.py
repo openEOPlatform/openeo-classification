@@ -59,7 +59,13 @@ def test_benchmark_creo_sentinel1(some_20km_tiles_in_belgium):
         return job
 
 
-    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinel1_creo.csv"),parallel_jobs=1,connection_provider=creo)
+    run_jobs(
+        df=some_20km_tiles_in_belgium,
+        start_job=run,
+        outputFile=Path("benchmarks_sentinel1_creo.csv"),
+        connection_provider=creo,
+        parallel_jobs=1,
+    )
 
 def test_benchmark_creo_20km_tile(some_20km_tiles_in_belgium):
     cube = features.load_features(2020, creo, provider="creodias")
@@ -75,7 +81,13 @@ def test_benchmark_creo_20km_tile(some_20km_tiles_in_belgium):
         job.start_job()
         return job
 
-    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_creo.csv"),parallel_jobs=1,connection_provider=creo)
+    run_jobs(
+        df=some_20km_tiles_in_belgium,
+        start_job=run,
+        outputFile=Path("benchmarks_creo.csv"),
+        connection_provider=creo,
+        parallel_jobs=1,
+    )
 
 def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     s2_cube, idx_list, s2_list = features.sentinel2_features(2020, creo, provider="creodias")
@@ -94,7 +106,13 @@ def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
         return job
 
 
-    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinel2_creo.csv"),parallel_jobs=1,connection_provider=creo)
+    run_jobs(
+        df=some_20km_tiles_in_belgium,
+        start_job=run,
+        outputFile=Path("benchmarks_sentinel2_creo.csv"),
+        connection_provider=creo,
+        parallel_jobs=1,
+    )
 
 def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     s2_cube, idx_list, s2_list = features.sentinel2_features(2020, terrascope_dev, provider="terrascope")
@@ -120,7 +138,12 @@ def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
         return job
 
 
-    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinel2_terrascope_masked.csv"))
+    run_jobs(
+        df=some_20km_tiles_in_belgium,
+        start_job=run,
+        outputFile=Path("benchmarks_sentinel2_terrascope_masked.csv"),
+        connection_provider=terrascope_dev,
+    )
 
     #for polygon in some_20km_tiles_in_belgium:
         #box = polygon.bounds
@@ -152,7 +175,13 @@ def test_benchmark_terrascope_20km_tile_features(some_20km_tiles_in_belgium):
         return job
 
 
-    run_jobs(some_20km_tiles_in_belgium,run,Path("benchmarks_sentinelhub_masked.csv"),parallel_jobs=3)
+    run_jobs(
+        df=some_20km_tiles_in_belgium,
+        start_job=run,
+        outputFile=Path("benchmarks_sentinelhub_masked.csv"),
+        connection_provider=terrascope_dev,
+        parallel_jobs=3,
+    )
 
 def test_benchmark_creo_samples(some_polygons):
     """
