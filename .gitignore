@@ -130,3 +130,7 @@ dmypy.json
 
 # IDE
 .idea/
+
+# Temp folder
+tmp/
+temp/
