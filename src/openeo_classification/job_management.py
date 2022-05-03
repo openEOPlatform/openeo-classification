@@ -1,12 +1,15 @@
+import collections
+import contextlib
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Union, Dict, Optional
 
 import geopandas as gpd
 import pandas as pd
 import requests
+from openeo import Connection
 from openeo.util import deep_get
 
 from openeo_classification.connection import connection, terrascope_dev
@@ -108,3 +111,136 @@ def create_or_load_job_statistics(path = "resources/training_data/job_statistics
         })
         df.to_csv(path,index=False)
     return df
+
+
+# Container for backend info/settings
+_Backend = collections.namedtuple("_Backend", ["get_connection", "parallel_jobs"])
+
+
+class MultiBackendJobManager:
+    """
+    Tracker for multiple jobs on multiple backends.
+
+    Usage example:
+
+        manager = MultiBackendJobManager()
+        manager.add_backend("foo", connection=openeo.connect("http://foo.test"))
+        manager.add_backend("bar", connection=openeo.connect("http://bar.test"))
+
+        jobs_df = pd.DataFrame(....)
+        output_file = Path("jobs.csv")
+        def start_job(row, connection, **kwargs):
+            ...
+
+        manager.run_jobs(df=df, start_job=start_job, output_file=output_file)
+
+    """
+
+    def __init__(self, poll_sleep=60):
+        self.backends: Dict[str, _Backend] = {}
+        self.poll_sleep = poll_sleep
+
+    def add_backend(self, name: str, connection: Union[Connection, Callable[[], Connection]], parallel_jobs=2):
+        """Register a backend with a name and a Connection getter"""
+        if isinstance(connection, Connection):
+            c = connection
+            connection = lambda: c
+        assert callable(connection)
+        self.backends[name] = _Backend(get_connection=connection, parallel_jobs=parallel_jobs)
+
+    def _normalize_df(self, df: pd.DataFrame) -> pd.DataFrame:
+        # check for some required columns.
+        required_with_default = [
+            ("status", "not_started"),
+            ("id", None),
+            ("cpu", None), ("memory", None), ("duration", None),
+            ("backend_name", None),
+        ]
+        new_columns = {col: val for (col, val) in required_with_default if col not in df.columns}
+        df = df.assign(**new_columns)
+        # Workaround for loading of geopandas "geometry" column.
+        if "geometry" in df.columns and df["geometry"].dtype.name != "geometry":
+            df["geometry"] = gpd.GeoSeries.from_wkt(df["geometry"])
+        return df
+
+    def run_jobs(self, df: pd.DataFrame, start_job: Callable, output_file: Path):
+
+        # TODO: this resume functionality better fits outside of this function
+        #       (e.g. if `output_file` exists: `df` is fully discarded)
+        if output_file.exists() and output_file.is_file():
+            # Resume from existing CSV
+            df = pd.read_csv(output_file)
+        df = self._normalize_df(df)
+
+        while df[(df.status != "finished") & (df.status != "skipped") & (df.status != "start_failed")].size > 0:
+            with ignore_connection_errors(context="get statuses"):
+                self._update_statuses(df)
+            status_histogram = df.groupby("status")["id"].count().to_dict()
+            _log.info(f"Status histogram: {status_histogram}")
+            df.to_csv(output_file, index=False)
+
+            if len(df[df.status == "not_started"]) > 0:
+                # Check number of jobs running at each backend
+                running = df[(df.status == "created") | (df.status == "queued") | (df.status == "running")]
+                per_backend = running.groupby("backend_name")["id"].count().to_dict()
+                for backend_name in self.backends:
+                    backend_load = per_backend.get(backend_name, 0)
+                    if backend_load < self.backends[backend_name].parallel_jobs:
+                        to_add = self.backends[backend_name].parallel_jobs - backend_load
+                        to_launch = df[df.status == "not_started"].iloc[0:to_add]
+                        for i in to_launch.index:
+                            df.loc[i, "backend_name"] = backend_name
+                            row = df.loc[i]
+                            try:
+                                _log.info(f"Starting job on backend {backend_name} for {row.to_dict()}")
+                                job = start_job(
+                                    row=row,
+                                    connection_provider=self.backends[backend_name].get_connection,
+                                    connection=self.backends[backend_name].get_connection(),
+                                    provider=backend_name,
+                                )
+                            except requests.exceptions.ConnectionError as e:
+                                _log.warning(f"Failed to start job for {row.to_dict()}", exc_info=True)
+                                df.loc[i, "status"] = "start_failed"
+                            else:
+                                if job:
+                                    df.loc[i, "id"] = job.job_id
+                                    with ignore_connection_errors(context="get status"):
+                                        df.loc[i, "status"] = job.status()
+                                else:
+                                    df.loc[i, "status"] = "skipped"
+
+                            df.to_csv(output_file, index=False)
+
+            time.sleep(self.poll_sleep)
+
+    def _update_statuses(self, df: pd.DataFrame):
+        """Update status (and stats) of running jobs (in place)"""
+        active = df.loc[(df.status == "created") | (df.status == "queued") | (df.status == "running")]
+        for i in active.index:
+            job_id = df.loc[i, 'id']
+            backend_name = df.loc[i, "backend_name"]
+            con = self.backends[backend_name].get_connection()
+            job_metadata = con.job(job_id).describe_job()
+            _log.info(f"Status of job {job_id!r} (on backend {backend_name}) is {job_metadata['status']!r}")
+            df.loc[i, "status"] = job_metadata["status"]
+            df.loc[i, "cpu"] = _format_usage_stat(job_metadata, "cpu")
+            df.loc[i, "memory"] = _format_usage_stat(job_metadata, "memory")
+            df.loc[i, "duration"] = _format_usage_stat(job_metadata, "duration")
+
+
+def _format_usage_stat(job_metadata: dict, field: str) -> str:
+    value = deep_get(job_metadata, "usage", field, 'value', default=0)
+    unit = deep_get(job_metadata, "usage", field, 'unit', default='')
+    return f"{value} {unit}".strip()
+
+
+@contextlib.contextmanager
+def ignore_connection_errors(context: Optional[str] = None):
+    """Context manager to ignore connection errors."""
+    try:
+        yield
+    except requests.exceptions.ConnectionError as e:
+        _log.warning(f"Ignoring connection error (context {context or 'n/a'}): {e}")
+        # Back off a bit
+        time.sleep(5)
