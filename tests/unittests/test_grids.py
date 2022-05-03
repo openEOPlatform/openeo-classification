@@ -14,16 +14,11 @@ def test_utm_100km():
     df = grids.UTM_100km_EU27()
     assert len(df) == 662
 
-    print(df)
 
-
-def test_utm_100km():
+def test_utm_100km_geojson(tmp_path):
     df = grids.UTM_100km_World()
-    df.to_file("world.geojson", driver='GeoJSON')
+    df.to_file(tmp_path / "world.geojson", driver='GeoJSON')
     assert len(df) == 662
-
-    print(df)
-
 
 
 def test_cropland_EU27():
