@@ -58,22 +58,11 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
     stepsize_s1 = 12
     # idx_dekad, idx_list, s2_list = sentinel2_features(start_date, end_date, connection_provider, provider, sampling=sampling, stepsize=stepsize_s2)
 
-    idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]
     s2_list = ["B06", "B12"]
     # s2_list = ["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12"]
-    index_dict = {
-        "collection": {
-            "input_range": [0, 8000],
-            "output_range": [0, 30000]
-        },
-        "indices": {
-            index: {"input_range": [-1, 1], "output_range": [0, 30000]} for index in idx_list
-        }
-    }
-    index_dict["indices"]["ANIR"] = {"input_range": [0,1], "output_range": [0,30000]}
-    print(index_dict)
 
-    idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, index_dict, s2_list, processing_opts, sampling=sampling, stepsize=stepsize_s2)
+
+    idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, s2_list, processing_opts, sampling=sampling, stepsize=stepsize_s2)
 
     # dem = load_dem(idx_dekad, connection_provider)
 
@@ -98,10 +87,23 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 #                            temporal_extent=temp_ext_s2)
 #     return dem.max_time().resample_cube_spatial(cube)
 
-def sentinel2_features(start_date, end_date, connection_provider, provider, index_dict, s2_list=[], processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median", luc=False):
+def sentinel2_features(start_date, end_date, connection_provider, provider, index_dict=None, s2_list=[], processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median", luc=False):
+    if index_dict == None:
+        idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]
+        index_dict = {
+            "collection": {
+                "input_range": [0, 8000],
+                "output_range": [0, 30000]
+            },
+            "indices": {
+                index: {"input_range": [-1, 1], "output_range": [0, 30000]} for index in idx_list
+            }
+        }
+        index_dict["indices"]["ANIR"] = {"input_range": [0,1], "output_range": [0,30000]}
+
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
     props = {}
-    s2_id = "SENTINEL2_L2A_SENTINELHUB"
+    s2_id = "SENTINEL2_L2A"
     if not luc:
         if (provider.upper() == "TERRASCOPE"):
             s2_id = "TERRASCOPE_S2_TOC_V2"

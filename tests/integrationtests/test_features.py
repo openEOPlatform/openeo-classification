@@ -7,7 +7,7 @@ from openeo_classification import features
 from openeo_classification.connection import connection, terrascope_dev, creo
 from openeo_classification.job_management import run_jobs
 from .conftest import block25_31UFS
-
+from datetime import date
 
 def test_classification_features(some_20km_tiles_with_cropland):
     cube:DataCube = features.load_features(2019, partial(connection,"openeo.creo.vito.be"),provider="creodias")
@@ -32,7 +32,7 @@ creo_job_options = {
 
 def test_benchmark_creo(some_20km_tiles_in_belgium):
     #cube = features.load_features(2021, creo,provider="creodias")
-    s2_cube, idx_list, s2_list = features.sentinel2_features(2020, creo, provider="creodias")
+    s2_cube, idx_list, s2_list = features.sentinel2_features(date(2020,1,1),date(2020,12,31), creo, provider="creodias")
     cube = features.compute_statistics(s2_cube).linear_scale_range(0, 30000, 0, 30000)
 
     for index,tile in some_20km_tiles_in_belgium.iterrows():
@@ -45,8 +45,8 @@ def test_benchmark_creo_sentinel1(some_20km_tiles_in_belgium):
     NOTE: for 2021, it seems that a large number of GRD products are missing on CreoDIAS!!
     @return:
     """
-    cube = features.sentinel1_features(2020, creo,provider="creodias",relativeOrbit=88)
-    stats = features.compute_statistics(cube)
+    cube = features.sentinel1_features(date(2020,1,1),date(2020,12,31), creo,provider="creodias",relativeOrbit=88)
+    stats = features.compute_statistics(cube, date(2020,1,1),date(2020,12,31), 10)
 
     def run(row):
         box = row.geometry.bounds
@@ -91,7 +91,7 @@ def test_benchmark_creo_20km_tile(some_20km_tiles_in_belgium):
 
 def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     s2_cube, idx_list, s2_list = features.sentinel2_features(2020, creo, provider="creodias")
-    stats = features.compute_statistics(s2_cube).linear_scale_range(0,30000,0,30000)
+    stats = features.compute_statistics(s2_cube, date(2020,1,1), date(2020,12,31), 10).linear_scale_range(0,30000,0,30000)
 
 
 
@@ -115,8 +115,8 @@ def test_benchmark_creo_20km_tile_sentinel2(some_20km_tiles_in_belgium):
     )
 
 def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
-    s2_cube, idx_list, s2_list = features.sentinel2_features(2020, terrascope_dev, provider="terrascope")
-    stats = features.compute_statistics(s2_cube).linear_scale_range(0,30000,0,30000)
+    s2_cube, idx_list, s2_list = features.sentinel2_features(date(2020, 1,1), date(2020,12,31), terrascope_dev, provider="terrascope")
+    stats = features.compute_statistics(s2_cube,date(2020, 1,1), date(2020,12,31), 10).linear_scale_range(0,30000,0,30000)
 
     job_options = {
         "driver-memory": "2G",
@@ -151,7 +151,6 @@ def test_benchmark_terrascope_20km_tile_sentinel2(some_20km_tiles_in_belgium):
 
 def test_benchmark_terrascope_20km_tile_features(some_20km_tiles_in_belgium):
     cube = features.load_features(2020, terrascope_dev, provider="sentinelhub")
-
 
     job_options = {
         "driver-memory": "2G",
@@ -198,20 +197,20 @@ def test_benchmark_creo_samples(some_polygons):
     #job.download_results("/tmp/")
 
 def test_benchmark_terrascope_sentinel1():
-    cube = features.sentinel1_features(2020, terrascope_dev,provider="terrascope",relativeOrbit=88)#
+    cube = features.sentinel1_features(date(2020,1,1),date(2020,12,31), terrascope_dev,provider="terrascope",relativeOrbit=88)#
     stats = features.compute_statistics(cube)
 
     box = block25_31UFS
     stats.filter_bbox(west=box[0],south=box[1],east=box[2],north=box[3],crs='EPSG:32631').download("block25_terrascope_2020_88_short.nc")
 
 def test_sentinel1_inputs():
-    cube = features.sentinel1_inputs(2021, terrascope_dev, provider="terrascope", relativeOrbit=88)
+    cube = features.sentinel1_inputs(date(2021,1,1), date(2021,12,31), terrascope_dev, provider="terrascope", relativeOrbit=88)
     box = block25_31UFS
     cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3], crs='EPSG:32631')\
         .download("block25_terrascope_inputs.nc")
 
 def test_sentinel1_inputs_creo():
-    cube = features.sentinel1_inputs(2021, creo, provider="creodias", relativeOrbit=88)
+    cube = features.sentinel1_inputs(date(2021,1,1), date(2021,12,31), creo, provider="creodias", relativeOrbit=88)
     box = block25_31UFS
     cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3], crs='EPSG:32631')\
         .download("block25_creo_inputs.nc")
