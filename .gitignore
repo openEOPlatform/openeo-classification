@@ -134,3 +134,6 @@ dmypy.json
 # Temp folder
 tmp/
 temp/
+
+# Unit test/integration test/benchmark output
+benchmark_*.csv
