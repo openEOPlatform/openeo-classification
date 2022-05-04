@@ -5,6 +5,7 @@ from setuptools import setup, find_packages
 
 tests_require = [
     "pytest",
+    "requests_mock",
 ]
 
 

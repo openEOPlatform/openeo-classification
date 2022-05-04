@@ -97,4 +97,4 @@ def run(row):
         return None
 
 
-run_jobs(dataframe, run, Path("sampling_creo.csv"), parallel_jobs=1, connection_provider=creo)
+run_jobs(df=dataframe, start_job=run, outputFile=Path("sampling_creo.csv"), connection_provider=creo, parallel_jobs=1)
