@@ -169,20 +169,29 @@ class MultiBackendJobManager:
         #       (e.g. if `output_file` exists: `df` is fully discarded)
         if output_file.exists() and output_file.is_file():
             # Resume from existing CSV
+            _log.info(f"Resuming `run_jobs` from {output_file.absolute()}")
             df = pd.read_csv(output_file)
+            status_histogram = df.groupby("status").size().to_dict()
+            _log.info(f"Status histogram: {status_histogram}")
+
         df = self._normalize_df(df)
+
+        def persists(df, output_file):
+            df.to_csv(output_file, index=False)
+            _log.info(f"Wrote job metadata to {output_file.absolute()}")
 
         while df[(df.status != "finished") & (df.status != "skipped") & (df.status != "start_failed")].size > 0:
             with ignore_connection_errors(context="get statuses"):
                 self._update_statuses(df)
-            status_histogram = df.groupby("status")["id"].count().to_dict()
+            status_histogram = df.groupby("status").size().to_dict()
             _log.info(f"Status histogram: {status_histogram}")
-            df.to_csv(output_file, index=False)
+            persists(df, output_file)
 
             if len(df[df.status == "not_started"]) > 0:
                 # Check number of jobs running at each backend
                 running = df[(df.status == "created") | (df.status == "queued") | (df.status == "running")]
-                per_backend = running.groupby("backend_name")["id"].count().to_dict()
+                per_backend = running.groupby("backend_name").size().to_dict()
+                _log.info(f"Running per backend: {per_backend}")
                 for backend_name in self.backends:
                     backend_load = per_backend.get(backend_name, 0)
                     if backend_load < self.backends[backend_name].parallel_jobs:
@@ -210,7 +219,7 @@ class MultiBackendJobManager:
                                 else:
                                     df.loc[i, "status"] = "skipped"
 
-                            df.to_csv(output_file, index=False)
+                            persists(df, output_file)
 
             time.sleep(self.poll_sleep)
 
