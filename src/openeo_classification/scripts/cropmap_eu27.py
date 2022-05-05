@@ -28,6 +28,7 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
 
     terrascope_tiles = gpd.GeoDataFrame.from_features(read_json_resource("openeo_classification.scripts", "terrascope_data_2021.geojson"))
     terrascope_tiles = terrascope_tiles[(terrascope_tiles.sentinel2count>70) & (terrascope_tiles.sentinel1count>80)]
+    terrascope_tiles = terrascope_tiles.sort_values(by=['cropland_perc'],ascending=False)
 
     logger.info(f"Found {len(terrascope_tiles)} tiles to process using {provider}. Year: {year}")
 

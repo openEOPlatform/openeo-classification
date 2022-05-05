@@ -1,5 +1,6 @@
 import collections
 import contextlib
+import datetime
 import logging
 import os
 import time
@@ -66,6 +67,7 @@ def run_jobs(
                     next_job["id"] = job.job_id
                 else:
                     next_job["status"] = "skipped"
+                next_job["start_time"] = datetime.datetime.now().isoformat()
                 print(next_job)
                 df.loc[next_job.name] = next_job
 
@@ -104,6 +106,7 @@ def create_or_load_job_statistics(path = "resources/training_data/job_statistics
         df = pd.DataFrame({
             "fp": [],
             "status": [],
+            "start_time": [],
             "id": [],
             "cpu": [],
             "memory": [],
@@ -153,6 +156,7 @@ class MultiBackendJobManager:
         required_with_default = [
             ("status", "not_started"),
             ("id", None),
+            ("start_time", None),
             ("cpu", None), ("memory", None), ("duration", None),
             ("backend_name", None),
         ]
@@ -212,6 +216,7 @@ class MultiBackendJobManager:
                                 _log.warning(f"Failed to start job for {row.to_dict()}", exc_info=True)
                                 df.loc[i, "status"] = "start_failed"
                             else:
+                                df.loc[i, "start_time"] = datetime.datetime.now().isoformat()
                                 if job:
                                     df.loc[i, "id"] = job.job_id
                                     with ignore_connection_errors(context="get status"):
