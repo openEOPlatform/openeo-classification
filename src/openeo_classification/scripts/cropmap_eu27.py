@@ -2,6 +2,7 @@ from pathlib import Path
 import logging
 import fire
 import geopandas as gpd
+from matplotlib.colors import ListedColormap
 
 from openeo.processes import ProcessBuilder
 from openeo.rest.mlmodel import MlModel
@@ -54,6 +55,19 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
         "executor-cores": "2",
         "max-executors": "20"
     }
+
+    col_palette = [
+        "#FFFFFF",
+        "#CCFF33",
+        "#66FF33",
+        "#FF9900",
+        "#CC9900",
+        "#990033",
+        "#FFFF00",
+        "#FF6699"
+    ]
+    cmap = ListedColormap(col_palette)
+    classification_colors = {x: cmap(x) for x in range(0, len(col_palette))}
 
     def run(row):
         box = row.geometry.bounds
