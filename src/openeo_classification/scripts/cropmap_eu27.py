@@ -14,7 +14,27 @@ from openeo_classification.resources import read_json_resource
 
 logger = logging.getLogger("openeo_classification.cropmap")
 
-def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2, status_file = "eu27_terrascope.csv"):
+configs = {
+    "reduced_featureset": {
+        "input":[{
+            "collection": "SENTINEL2_L2A",
+            "bands": ["B03","B04","B05","B06","B08","B11","B12","SCL"]
+        },
+        {
+            "collection": "SENTINEL1_GRD",
+            "bands": ["VV","VH"]
+        }
+        ]
+    }
+}
+
+def produce_on_terrascope():
+    produce_eu27_croptype_map(provider="terrascope", year=2021, parallel_jobs=20, status_file="eu27_terrascope_all.csv")
+
+def produce_on_creodias():
+    produce_eu27_croptype_map(provider="creodias", year=2021, parallel_jobs=1, status_file="eu27_creodias.csv")
+
+def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 20, status_file = "eu27_terrascope_all.csv"):
     """
     Script to start and monitor jobs for the EU27 croptype map project in openEO platform CCN.
     The script can use multiple backends, to maximize throughput. Jobs are tracked in a CSV file, upon failure, the script can resume
@@ -44,17 +64,17 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
         return cube.reduce_dimension(dimension="bands", reducer=reducer, context=model)
 
 
-    cube = predict_catboost(features.load_features(year, connection, provider=provider),model="")
+    cube = predict_catboost(features.load_features(year, connection, provider=provider),model="https://artifactory.vgt.vito.be/auxdata-public/openeo/catboost_test/ml_model_klein.json")
 
     job_options = {
         "driver-memory": "2G",
         "driver-memoryOverhead": "2G",
         "driver-cores": "1",
         "executor-memory": "2G",
-        "executor-memoryOverhead": "1G",
+        "executor-memoryOverhead": "2000m",
         "executor-cores": "2",
         "max-executors": "20"
-    }
+    } if provider != "creodias" else features.creo_job_options
 
     col_palette = [
         "#FFFFFF",
@@ -72,10 +92,10 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
     def run(row):
         box = row.geometry.bounds
         cropland = row.cropland_perc
-        job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).create_job(out_format="GTiff",
-                                                                                              title=f"EU27 croptypes {row.name} - {cropland:.1f}",
+        job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).linear_scale_range(0,20,0,20).create_job(out_format="GTiff",
+                                                                                              title=f"EU27 croptypes {row['name']} - {cropland:.1f}",
                                                                                               description=f"Croptype map for 5 crops in EU27.",
-                                                                                              job_options=job_options, overviews="ALL")
+                                                                                              job_options=job_options, overviews="ALL",colormap=classification_colors)
         job.start_job()
         job.logs()
         return job
@@ -91,4 +111,4 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
 
 
 if __name__ == '__main__':
-  fire.Fire(produce_eu27_croptype_map)
+  fire.Fire(produce_on_terrascope)

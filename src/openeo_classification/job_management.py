@@ -42,6 +42,7 @@ def run_jobs(
         df['geometry'] = gpd.GeoSeries.from_wkt(df['geometry'])
     else:
         df["status"] = "not_started"
+        df["start_time"] = ""
         df["id"] = "None"
         df["cpu"] = 0
         df["memory"] = 0
@@ -87,10 +88,13 @@ def update_statuses(status_df, connection_provider=connection):
     con = connection_provider()
     for i in running_jobs(status_df):
         job_id = status_df.loc[i, 'id']
-        job = con.job(job_id).describe_job()
+        the_job = con.job(job_id)
+        job = the_job.describe_job()
         usage = job.get('usage', {})
-        status_df.loc[i, "status"] = job["status"]
+        if status_df.loc[i, "status"] == "running" and job["status"] == "finished":
+            the_job.download_result(job['title'] + ".tif")
         status_df.loc[i, "cpu"] = f"{deep_get(usage,'cpu','value',default=0)} {deep_get(usage,'cpu','unit',default='')}"
+        status_df.loc[i, "status"] = job["status"]
         status_df.loc[i, "memory"] = f"{deep_get(usage,'memory','value',default=0)} {deep_get(usage,'memory','unit',default='')}"
         status_df.loc[i, "duration"] = deep_get(usage,'duration','value',default=0)
         print(time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime()) + "\tCurrent status of job " + job_id
