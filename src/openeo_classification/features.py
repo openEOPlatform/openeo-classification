@@ -62,7 +62,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
     # s2_list = ["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12"]
 
 
-    idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, s2_list, processing_opts, sampling=sampling, stepsize=stepsize_s2)
+    idx_dekad = sentinel2_features(start_date, end_date, connection_provider, provider, s2_list=s2_list, processing_opts=processing_opts, sampling=sampling, stepsize=stepsize_s2)
 
     # dem = load_dem(idx_dekad, connection_provider)
 
@@ -100,6 +100,7 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
             }
         }
         index_dict["indices"]["ANIR"] = {"input_range": [0,1], "output_range": [0,30000]}
+        print(index_dict)
 
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
     props = {}
@@ -136,6 +137,7 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
 
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
+    print(index_dict["indices"])
     indices = compute_and_rescale_indices(s2, index_dict, True).filter_bands(s2_list + list(index_dict["indices"].keys()))
 
     # months = ["03","04","05","06","07","08","09","10","11"]
