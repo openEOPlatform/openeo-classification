@@ -28,3 +28,4 @@ def connection(url = _default_url) -> Connection:
 
 terrascope_dev = partial(connection,"openeo-dev.vito.be")
 creo = partial(connection,"openeo.creo.vito.be")
+creo_new = partial(connection,"https://openeo-dev.creo.vito.be/openeo/1.1.0/")

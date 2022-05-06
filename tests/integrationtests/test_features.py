@@ -1,11 +1,11 @@
 from functools import partial
 from pathlib import Path
-
+import datetime
 from openeo import DataCube
 
 from openeo_classification import features
 from openeo_classification.connection import connection, terrascope_dev, creo
-from openeo_classification.job_management import run_jobs
+from openeo_classification.job_management import run_jobs, MultiBackendJobManager
 from .conftest import block25_31UFS
 from datetime import date
 
@@ -214,3 +214,34 @@ def test_sentinel1_inputs_creo():
     box = block25_31UFS
     cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3], crs='EPSG:32631')\
         .download("block25_creo_inputs.nc")
+
+
+def test_benchmark_multibackend_20km_tile_sentinel2(some_20km_tiles_in_belgium):
+    def start_job(row, connection_provider, provider, **kwargs):
+        start_date = datetime.date(int(2020), 3, 15)
+        end_date = datetime.date(int(2020), 10, 31)
+
+        s2_cube = features.sentinel2_features(start_date=start_date, end_date=end_date, connection_provider=connection_provider, provider=provider)
+        stats = features.compute_statistics(base_features=s2_cube, start_date=start_date, end_date=end_date, stepsize=10).linear_scale_range(0, 30000, 0, 30000)
+
+        box = row.geometry.bounds
+        cropland = row.cropland_perc
+        stats = stats.filter_bbox(bbox=box)
+        job = stats.send_job(
+            out_format="GTiff",
+            title=f"Croptype Sentinel-2 features {cropland:.1f}",
+            description=f"Sentinel-2 features for crop type detection.",
+            job_options=creo_job_options
+        )
+        job.start_job()
+        return job
+
+    manager = MultiBackendJobManager()
+    manager.add_backend("creodias", connection=creo, parallel_jobs=1)
+    manager.add_backend("terrascope", connection=terrascope_dev, parallel_jobs=1)
+
+    manager.run_jobs(
+        df=some_20km_tiles_in_belgium,
+        start_job=start_job,
+        output_file=Path("benchmark_multibackend_20km_tile_sentinel2.csv")
+    )

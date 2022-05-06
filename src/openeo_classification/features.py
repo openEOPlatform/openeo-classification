@@ -23,7 +23,7 @@ job_options = {
         "executor-memory": "2G",
         "executor-memoryOverhead": "2G",
         "executor-cores": "1",
-        "max-executors": "100",
+        "max-executors": "15",
         "soft-errors": "true"
 }
 
@@ -31,11 +31,22 @@ creo_job_options = {
         "driver-memory": "4G",
         "driver-memoryOverhead": "2G",
         "driver-cores": "1",
-        "executor-memory": "2G",
-        "executor-memoryOverhead": "2500m",
+        "executor-memory": "2000m",
+        "executor-memoryOverhead": "3500m",
         "executor-cores": "4",
         "executor-request-cores": "400m",
-        "max-executors": "15"
+        "max-executors": "20"
+    }
+
+creo_job_options_production = {
+        "driver-memory": "4G",
+        "driver-memoryOverhead": "2G",
+        "driver-cores": "1",
+        "executor-memory": "2000m",
+        "executor-memoryOverhead": "4500m",
+        "executor-cores": "4",
+        "executor-request-cores": "400m",
+        "max-executors": "20"
     }
 
 def _calculate_intervals(start_date, end_date, stepsize = 10, overlap = 10):
@@ -73,6 +84,10 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 
     s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1).linear_scale_range(0,30000,0,30000)
 
+    if(not sampling):
+        #reduced input features for model
+        idx_features = idx_features.filter_bands([ 'B06_p25', 'B06_p50', 'B06_p75', 'B06_sd', 'B06_t4', 'B06_t7', 'B06_t10', 'B06_t13', 'B06_t16', 'B06_t19', 'B12_p25', 'B12_p50', 'B12_p75', 'B12_sd', 'B12_t4', 'B12_t7', 'B12_t10', 'B12_t13', 'B12_t16', 'B12_t19', 'NDVI_p25', 'NDVI_p50', 'NDVI_p75', 'NDVI_sd', 'NDGI_p25', 'NDGI_p50', 'NDGI_p75', 'NDGI_sd', 'NDGI_t4', 'NDGI_t7', 'NDGI_t10', 'NDGI_t13', 'NDGI_t16', 'NDGI_t19', 'NDRE1_p25', 'NDRE1_p50', 'NDRE1_p75', 'NDRE1_sd', 'NDRE2_p25', 'NDRE2_p50', 'NDRE2_p75', 'NDRE2_sd', 'NDRE5_p25', 'NDRE5_p50', 'NDRE5_p75', 'NDRE5_sd', 'ANIR_p25', 'ANIR_p50', 'ANIR_p75', 'ANIR_sd', 'ANIR_t4', 'ANIR_t7', 'ANIR_t10', 'ANIR_t13', 'ANIR_t16', 'ANIR_t19'])
+        s1_features = s1_features.filter_bands([ 'ratio_p25', 'ratio_p50', 'ratio_p75', 'ratio_sd', 'VV_p25', 'VV_p50', 'VV_p75', 'VV_sd', 'VV_t2', 'VV_t5', 'VV_t8', 'VV_t11', 'VV_t14','VV_t17', 'VH_p25', 'VH_p50', 'VH_p75', 'VH_sd', 'VH_t2', 'VH_t5', 'VH_t8', 'VH_t11', 'VH_t14', 'VH_t17'])
     features = idx_features.merge_cubes(s1_features)
 
     # base_features = idx_dekad.merge_cubes(s1_dekad)
@@ -89,7 +104,7 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 
 def sentinel2_features(start_date, end_date, connection_provider, provider, index_dict=None, s2_list=[], processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median", luc=False):
     if index_dict == None:
-        idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]
+        idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"] if sampling else ["NDVI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]
         index_dict = {
             "collection": {
                 "input_range": [0, 8000],
@@ -103,7 +118,9 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
         print(index_dict)
 
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
-    props = {}
+    props = {
+        "eo:cloud_cover": lambda v: v == 80
+    }
     s2_id = "SENTINEL2_L2A"
     if not luc:
         if (provider.upper() == "TERRASCOPE"):
@@ -112,16 +129,18 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
                 "eo:cloud_cover": lambda v: v == 80 ## moet sowieso <= zijn?
             }
         elif (provider.upper() == "CREODIAS"):
+            s2_id = "SENTINEL2_L2A"
             props = {
                # "provider:backend": lambda v: v == "creodias",
                 "eo:cloud_cover": lambda v: v == 80
             }
+    bands = ["B01","B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","SCL"] if( sampling) else ["B03","B04","B05","B06","B07","B08","B11","B12","SCL"]
 
     c = connection_provider()
     s2 = c.load_collection(s2_id,
                            temporal_extent=temp_ext_s2,
                            # bands=["B03", "B04", "B05", "B06", "B07", "B08", "B11", "B12", "SCL"],
-                           bands=["B01","B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","SCL"],
+                           bands=bands,
                            properties=props)
 
     if(provider.lower()=="creodias"):
@@ -132,8 +151,8 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
     s2._pg.arguments['featureflags']['tilesize'] = processing_opts.get("tilesize",256)
     s2._pg.arguments['featureflags']['experimental'] = True
 
-    if not sampling:
-        s2 = cropland_mask(s2, c, provider)
+    #if not sampling:
+    #    s2 = cropland_mask(s2, c, provider)
 
     s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
@@ -235,13 +254,17 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
     if (provider.lower() == "creodias"):
         s1._pg.arguments['featureflags'] = creo_partition_options
     else:
-        s1._pg.arguments['featureflags'] = processing_opts
+        if sampling:
+            s1._pg.arguments['featureflags'] = temporal_partition_options
+        else:
+            s1._pg.arguments['featureflags'] = processing_opts
 
     s1._pg.arguments['featureflags']['experimental'] = False
 
 
     if (provider.upper() != "TERRASCOPE"):
-        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid")#,options={"implementation_version":"1","tile_size":processing_opts.get("tile_size",256), "otb_memory":128})
+        impl_version = "1" if sampling else "2"
+        s1 = s1.sar_backscatter(coefficient="sigma0-ellipsoid",options={"implementation_version":impl_version,"tile_size":processing_opts.get("tilesize",256), "otb_memory":128,"debug":True})
 
     if not sampling:
         s1 = cropland_mask(s1, c, provider)

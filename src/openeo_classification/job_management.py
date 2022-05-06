@@ -1,5 +1,6 @@
 import collections
 import contextlib
+import datetime
 import logging
 import os
 import time
@@ -41,6 +42,7 @@ def run_jobs(
         df['geometry'] = gpd.GeoSeries.from_wkt(df['geometry'])
     else:
         df["status"] = "not_started"
+        df["start_time"] = ""
         df["id"] = "None"
         df["cpu"] = 0
         df["memory"] = 0
@@ -66,6 +68,7 @@ def run_jobs(
                     next_job["id"] = job.job_id
                 else:
                     next_job["status"] = "skipped"
+                next_job["start_time"] = datetime.datetime.now().isoformat()
                 print(next_job)
                 df.loc[next_job.name] = next_job
 
@@ -85,10 +88,13 @@ def update_statuses(status_df, connection_provider=connection):
     con = connection_provider()
     for i in running_jobs(status_df):
         job_id = status_df.loc[i, 'id']
-        job = con.job(job_id).describe_job()
+        the_job = con.job(job_id)
+        job = the_job.describe_job()
         usage = job.get('usage', {})
-        status_df.loc[i, "status"] = job["status"]
+        if status_df.loc[i, "status"] == "running" and job["status"] == "finished":
+            the_job.download_result(job['title'] + ".tif")
         status_df.loc[i, "cpu"] = f"{deep_get(usage,'cpu','value',default=0)} {deep_get(usage,'cpu','unit',default='')}"
+        status_df.loc[i, "status"] = job["status"]
         status_df.loc[i, "memory"] = f"{deep_get(usage,'memory','value',default=0)} {deep_get(usage,'memory','unit',default='')}"
         status_df.loc[i, "duration"] = deep_get(usage,'duration','value',default=0)
         print(time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime()) + "\tCurrent status of job " + job_id
@@ -104,6 +110,7 @@ def create_or_load_job_statistics(path = "resources/training_data/job_statistics
         df = pd.DataFrame({
             "fp": [],
             "status": [],
+            "start_time": [],
             "id": [],
             "cpu": [],
             "memory": [],
@@ -153,6 +160,7 @@ class MultiBackendJobManager:
         required_with_default = [
             ("status", "not_started"),
             ("id", None),
+            ("start_time", None),
             ("cpu", None), ("memory", None), ("duration", None),
             ("backend_name", None),
         ]
@@ -169,20 +177,29 @@ class MultiBackendJobManager:
         #       (e.g. if `output_file` exists: `df` is fully discarded)
         if output_file.exists() and output_file.is_file():
             # Resume from existing CSV
+            _log.info(f"Resuming `run_jobs` from {output_file.absolute()}")
             df = pd.read_csv(output_file)
+            status_histogram = df.groupby("status").size().to_dict()
+            _log.info(f"Status histogram: {status_histogram}")
+
         df = self._normalize_df(df)
+
+        def persists(df, output_file):
+            df.to_csv(output_file, index=False)
+            _log.info(f"Wrote job metadata to {output_file.absolute()}")
 
         while df[(df.status != "finished") & (df.status != "skipped") & (df.status != "start_failed")].size > 0:
             with ignore_connection_errors(context="get statuses"):
                 self._update_statuses(df)
-            status_histogram = df.groupby("status")["id"].count().to_dict()
+            status_histogram = df.groupby("status").size().to_dict()
             _log.info(f"Status histogram: {status_histogram}")
-            df.to_csv(output_file, index=False)
+            persists(df, output_file)
 
             if len(df[df.status == "not_started"]) > 0:
                 # Check number of jobs running at each backend
                 running = df[(df.status == "created") | (df.status == "queued") | (df.status == "running")]
-                per_backend = running.groupby("backend_name")["id"].count().to_dict()
+                per_backend = running.groupby("backend_name").size().to_dict()
+                _log.info(f"Running per backend: {per_backend}")
                 for backend_name in self.backends:
                     backend_load = per_backend.get(backend_name, 0)
                     if backend_load < self.backends[backend_name].parallel_jobs:
@@ -203,6 +220,7 @@ class MultiBackendJobManager:
                                 _log.warning(f"Failed to start job for {row.to_dict()}", exc_info=True)
                                 df.loc[i, "status"] = "start_failed"
                             else:
+                                df.loc[i, "start_time"] = datetime.datetime.now().isoformat()
                                 if job:
                                     df.loc[i, "id"] = job.job_id
                                     with ignore_connection_errors(context="get status"):
@@ -210,7 +228,7 @@ class MultiBackendJobManager:
                                 else:
                                     df.loc[i, "status"] = "skipped"
 
-                            df.to_csv(output_file, index=False)
+                            persists(df, output_file)
 
             time.sleep(self.poll_sleep)
 
