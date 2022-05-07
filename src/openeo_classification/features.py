@@ -198,7 +198,7 @@ def cropland_mask(cube_to_mask, connection, provider="terrascope"):
         wc = connection.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands=["MAP"],
                                         temporal_extent=["2020-12-30", "2021-01-01"])
         worldcover_band = wc.band("MAP")
-        mask = ((worldcover_band != 40) and (worldcover_band != 30)).min_time()
+        mask = ( (worldcover_band != 30) & (worldcover_band != 40)).min_time()
         if(cube_to_mask is not None):
             return cube_to_mask.mask(mask.resample_cube_spatial(cube_to_mask))
         else:
