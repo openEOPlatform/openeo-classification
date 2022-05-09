@@ -163,8 +163,7 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
     s2._pg.arguments['featureflags']['experimental'] = True
 
     if not sampling:
-       s2 = cropland_mask(s2, c, provider)
-
+        s2 = cropland_mask(s2, c, provider)
     if cloud_procedure=="scl":
         g = scipy.signal.windows.gaussian(11, std=1.6)
         kernel = np.outer(g, g)
@@ -214,12 +213,18 @@ def sentinel1_features(start_date, end_date, connection_provider = connection, p
     s1_dekad = s1_dekad.apply_dimension(dimension="t", process="array_interpolate_linear")
     return s1_dekad
 
-def cropland_mask(cube_to_mask, connection, provider):
+def cropland_mask(cube_to_mask, connection, provider="terrascope"):
     if (provider.lower() == "terrascope"):
         wc = connection.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands=["MAP"],
                                         temporal_extent=["2020-12-30", "2021-01-01"])
-        cube_to_mask = cube_to_mask.mask((wc.band("MAP") != 40).min_time().resample_cube_spatial(cube_to_mask))
-    return cube_to_mask
+        worldcover_band = wc.band("MAP")
+        mask = ( (worldcover_band != 30) & (worldcover_band != 40)).min_time()
+        if(cube_to_mask is not None):
+            return cube_to_mask.mask(mask.resample_cube_spatial(cube_to_mask))
+        else:
+            return mask
+    else:
+        return cube_to_mask
 
 
 def compute_statistics(base_features, start_date, end_date, stepsize):

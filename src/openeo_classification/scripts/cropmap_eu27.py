@@ -29,7 +29,7 @@ configs = {
 }
 
 def produce_on_terrascope():
-    produce_eu27_croptype_map(provider="terrascope", year=2021, parallel_jobs=1, status_file="eu27_terrascope_all.csv")
+    produce_eu27_croptype_map(provider="terrascope", year=2021, parallel_jobs=3, status_file="eu27_terrascope_all.csv")
 
 def produce_on_creodias():
     produce_eu27_croptype_map(provider="creodias", year=2021, parallel_jobs=1, status_file="eu27_creodias.csv")
