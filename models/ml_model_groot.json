@@ -1,0 +1,64 @@
+{
+  "stac_version": "1.0.0",
+  "stac_extensions": [
+    "https://stac-extensions.github.io/ml-model/v1.0.0/schema.json"
+  ],
+  "type": "Feature",
+  "id": "catboost-test-model",
+  "collection": "test",
+  "bbox": [
+    -179.999,
+    -89.999,
+    179.999,
+    89.999
+  ],
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -179.999,
+          -89.999
+        ],
+        [
+          179.999,
+          -89.999
+        ],
+        [
+          179.999,
+          89.999
+        ],
+        [
+          -179.999,
+          89.999
+        ],
+        [
+          -179.999,
+          -89.999
+        ]
+      ]
+    ]
+  },
+  "properties": {
+    "datetime": null,
+    "start_datetime": "2000-01-01T00:00:00Z",
+    "end_datetime": "2019-12-12T23:59:59Z",
+    "providers": [],
+    "inputfeatures":["B06_p25", "B06_p50", "B06_p75", "B06_sd", "B06_t4", "B06_t7", "B06_t10", "B06_t13", "B06_t16", "B06_t19", "B12_p25", "B12_p50", "B12_p75", "B12_sd", "B12_t4", "B12_t7", "B12_t10", "B12_t13", "B12_t16", "B12_t19", "NDVI_p25", "NDVI_p50", "NDVI_p75", "NDVI_sd", "NDVI_t4", "NDVI_t7", "NDVI_t10", "NDVI_t13", "NDVI_t16", "NDVI_t19", "NDMI_p25", "NDMI_p50", "NDMI_p75", "NDMI_sd", "NDMI_t4", "NDMI_t7", "NDMI_t10", "NDMI_t13", "NDMI_t16", "NDMI_t19", "NDGI_p25", "NDGI_p50", "NDGI_p75", "NDGI_sd", "NDGI_t4", "NDGI_t7", "NDGI_t10", "NDGI_t13", "NDGI_t16", "NDGI_t19", "NDRE1_p25", "NDRE1_p50", "NDRE1_p75", "NDRE1_sd", "NDRE1_t4", "NDRE1_t7", "NDRE1_t10", "NDRE1_t13", "NDRE1_t16", "NDRE1_t19", "NDRE2_p25", "NDRE2_p50", "NDRE2_p75", "NDRE2_sd", "NDRE2_t4", "NDRE2_t7", "NDRE2_t10", "NDRE2_t13", "NDRE2_t16", "NDRE2_t19", "NDRE5_p25", "NDRE5_p50", "NDRE5_p75", "NDRE5_sd", "NDRE5_t4", "NDRE5_t7", "NDRE5_t10", "NDRE5_t13", "NDRE5_t16", "NDRE5_t19", "ANIR_p25", "ANIR_p50", "ANIR_p75", "ANIR_sd", "ANIR_t4", "ANIR_t7", "ANIR_t10", "ANIR_t13", "ANIR_t16", "ANIR_t19", "ratio_p25", "ratio_p50", "ratio_p75", "ratio_sd", "ratio_t2", "ratio_t5", "ratio_t8", "ratio_t11", "ratio_t14", "ratio_t17", "VV_p25", "VV_p50", "VV_p75", "VV_sd", "VV_t2", "VV_t5", "VV_t8", "VV_t11", "VV_t14", "VV_t17", "VH_p25", "VH_p50", "VH_p75", "VH_sd", "VH_t2", "VH_t5", "VH_t8", "VH_t11", "VH_t14", "VH_t17", "groupID", "zoneID"],
+    "ml-model:type": "ml-model",
+    "ml-model:learning_approach": "supervised",
+    "ml-model:prediction_type": "classification",
+    "ml-model:architecture": "catboost"
+  },
+  "links": [],
+  "assets": {
+    "model": {
+      "href": "https://github.com/openEOPlatform/openeo-classification/releases/download/model_lps/c_grouped_groot.cbm",
+      "type": "application/octet-stream",
+      "title": "ai.catboost.spark.CatBoostClassificationModel",
+      "roles": [
+        "ml-model:checkpoint"
+      ]
+    }
+  }
+}
