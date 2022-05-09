@@ -29,7 +29,7 @@ configs = {
 }
 
 def produce_on_terrascope():
-    produce_eu27_croptype_map(provider="terrascope", year=2021, parallel_jobs=20, status_file="eu27_terrascope_all.csv")
+    produce_eu27_croptype_map(provider="terrascope", year=2021, parallel_jobs=1, status_file="eu27_terrascope_all.csv")
 
 def produce_on_creodias():
     produce_eu27_croptype_map(provider="creodias", year=2021, parallel_jobs=1, status_file="eu27_creodias.csv")
@@ -64,7 +64,7 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
         return cube.reduce_dimension(dimension="bands", reducer=reducer, context=model)
 
 
-    cube = predict_catboost(features.load_features(year, connection, provider=provider),model="https://artifactory.vgt.vito.be/auxdata-public/openeo/catboost_test/ml_model_klein.json")
+    cube = predict_catboost(features.load_features(year, connection, provider=provider),model="https://artifactory.vgt.vito.be/auxdata-public/openeo/catboost_test/ml_model_groot.json")
 
     job_options = {
         "driver-memory": "2G",
@@ -91,7 +91,10 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
 
     def run(row):
         box = row.geometry.bounds
+        # box = [26.9997494741209501,43.3456518738389391,28.2532321823819395,44.2534175796591356]
+
         cropland = row.cropland_perc
+        # cropland = 100.0
         job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).linear_scale_range(0,20,0,20).create_job(out_format="GTiff",
                                                                                               title=f"EU27 croptypes {row['name']} - {cropland:.1f}",
                                                                                               description=f"Croptype map for 5 crops in EU27.",

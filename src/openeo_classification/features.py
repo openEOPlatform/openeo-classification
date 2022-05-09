@@ -4,6 +4,8 @@ from openeo.extra.spectral_indices.spectral_indices import compute_and_rescale_i
 from openeo.processes import array_concat, ProcessBuilder, array_create
 
 from openeo_classification.connection import connection
+import scipy.signal
+import numpy as np
 
 temporal_partition_options = {
         "indexreduction": 0,
@@ -84,10 +86,19 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 
     s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1).linear_scale_range(0,30000,0,30000)
 
-    if(not sampling):
-        #reduced input features for model
-        idx_features = idx_features.filter_bands([ 'B06_p25', 'B06_p50', 'B06_p75', 'B06_sd', 'B06_t4', 'B06_t7', 'B06_t10', 'B06_t13', 'B06_t16', 'B06_t19', 'B12_p25', 'B12_p50', 'B12_p75', 'B12_sd', 'B12_t4', 'B12_t7', 'B12_t10', 'B12_t13', 'B12_t16', 'B12_t19', 'NDVI_p25', 'NDVI_p50', 'NDVI_p75', 'NDVI_sd', 'NDGI_p25', 'NDGI_p50', 'NDGI_p75', 'NDGI_sd', 'NDGI_t4', 'NDGI_t7', 'NDGI_t10', 'NDGI_t13', 'NDGI_t16', 'NDGI_t19', 'NDRE1_p25', 'NDRE1_p50', 'NDRE1_p75', 'NDRE1_sd', 'NDRE2_p25', 'NDRE2_p50', 'NDRE2_p75', 'NDRE2_sd', 'NDRE5_p25', 'NDRE5_p50', 'NDRE5_p75', 'NDRE5_sd', 'ANIR_p25', 'ANIR_p50', 'ANIR_p75', 'ANIR_sd', 'ANIR_t4', 'ANIR_t7', 'ANIR_t10', 'ANIR_t13', 'ANIR_t16', 'ANIR_t19'])
-        s1_features = s1_features.filter_bands([ 'ratio_p25', 'ratio_p50', 'ratio_p75', 'ratio_sd', 'VV_p25', 'VV_p50', 'VV_p75', 'VV_sd', 'VV_t2', 'VV_t5', 'VV_t8', 'VV_t11', 'VV_t14','VV_t17', 'VH_p25', 'VH_p50', 'VH_p75', 'VH_sd', 'VH_t2', 'VH_t5', 'VH_t8', 'VH_t11', 'VH_t14', 'VH_t17'])
+    # if(not sampling):
+    #     #reduced input features for model
+    #     idx_features = idx_features.filter_bands([ 'B06_p25', 'B06_p50', 'B06_p75', 'B06_sd', 'B06_t4', 'B06_t7', 'B06_t10', 'B06_t13', 'B06_t16', 'B06_t19', 
+    #                     'B12_p25', 'B12_p50', 'B12_p75', 'B12_sd', 'B12_t4', 'B12_t7', 'B12_t10', 'B12_t13', 'B12_t16', 'B12_t19', 
+    #                     'NDVI_p25', 'NDVI_p50', 'NDVI_p75', 'NDVI_sd', 
+    #                     'NDGI_p25', 'NDGI_p50', 'NDGI_p75', 'NDGI_sd', 'NDGI_t4', 'NDGI_t7', 'NDGI_t10', 'NDGI_t13', 'NDGI_t16', 'NDGI_t19', 
+    #                     'NDRE1_p25', 'NDRE1_p50', 'NDRE1_p75', 'NDRE1_sd', 
+    #                     'NDRE2_p25', 'NDRE2_p50', 'NDRE2_p75', 'NDRE2_sd', 
+    #                     'NDRE5_p25', 'NDRE5_p50', 'NDRE5_p75', 'NDRE5_sd', 
+    #                     'ANIR_p25', 'ANIR_p50', 'ANIR_p75', 'ANIR_sd', 'ANIR_t4', 'ANIR_t7', 'ANIR_t10', 'ANIR_t13', 'ANIR_t16', 'ANIR_t19'])
+    #     s1_features = s1_features.filter_bands([ 'ratio_p25', 'ratio_p50', 'ratio_p75', 'ratio_sd', 
+    #                     'VV_p25', 'VV_p50', 'VV_p75', 'VV_sd', 'VV_t2', 'VV_t5', 'VV_t8', 'VV_t11', 'VV_t14','VV_t17', 
+    #                     'VH_p25', 'VH_p50', 'VH_p75', 'VH_sd', 'VH_t2', 'VH_t5', 'VH_t8', 'VH_t11', 'VH_t14', 'VH_t17'])
     features = idx_features.merge_cubes(s1_features)
 
     # base_features = idx_dekad.merge_cubes(s1_dekad)
@@ -102,9 +113,9 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 #                            temporal_extent=temp_ext_s2)
 #     return dem.max_time().resample_cube_spatial(cube)
 
-def sentinel2_features(start_date, end_date, connection_provider, provider, index_dict=None, s2_list=[], processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median", luc=False):
+def sentinel2_features(start_date, end_date, connection_provider, provider, index_dict=None, s2_list=[], processing_opts={}, sampling=False, stepsize=10, overlap=10, reducer="median", luc=False,cloud_procedure="sen2cor"):
     if index_dict == None:
-        idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"] if sampling else ["NDVI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]
+        idx_list = ["NDVI", "NDMI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]# if sampling else ["NDVI", "NDGI", "NDRE1", "NDRE2", "NDRE5"]
         index_dict = {
             "collection": {
                 "input_range": [0, 8000],
@@ -134,7 +145,7 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
                # "provider:backend": lambda v: v == "creodias",
                 "eo:cloud_cover": lambda v: v == 80
             }
-    bands = ["B01","B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","SCL"] if( sampling) else ["B03","B04","B05","B06","B07","B08","B11","B12","SCL"]
+    bands = ["B03","B04","B05","B06","B07","B08","B11","B12","SCL"]
 
     c = connection_provider()
     s2 = c.load_collection(s2_id,
@@ -151,12 +162,22 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
     s2._pg.arguments['featureflags']['tilesize'] = processing_opts.get("tilesize",256)
     s2._pg.arguments['featureflags']['experimental'] = True
 
-    #if not sampling:
-    #    s2 = cropland_mask(s2, c, provider)
+    if not sampling:
+       s2 = cropland_mask(s2, c, provider)
 
-    s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
+    if cloud_procedure=="scl":
+        g = scipy.signal.windows.gaussian(11, std=1.6)
+        kernel = np.outer(g, g)
+        kernel = kernel / kernel.sum()
+        classification = s2.band("SCL")
+        mask = ~ ((classification == 4) | (classification == 5)) #only select the vegetation and bare soil classes
+        mask = mask.apply_kernel(kernel)
+        mask = mask > 0.1
+        s2 = s2.mask(mask)
+    else:
+        s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
 
-    print(index_dict["indices"])
+    print(list(index_dict["indices"].keys()))
     indices = compute_and_rescale_indices(s2, index_dict, True).filter_bands(s2_list + list(index_dict["indices"].keys()))
 
     # months = ["03","04","05","06","07","08","09","10","11"]
