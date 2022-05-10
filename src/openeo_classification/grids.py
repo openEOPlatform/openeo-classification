@@ -60,3 +60,11 @@ def cropland_EU27() -> gpd.GeoDataFrame:
     features = read_json_resource("openeo_classification.resources.grids", "cropland_20km.geojson")
     df = gpd.GeoDataFrame.from_features(features)
     return df
+
+def UTM_20km_EU27()->gpd.GeoDataFrame:
+    europe = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+    europe = europe[europe.continent=="Europe"]
+    countries = europe[europe.name.isin(EU27)]
+    df = gpd.read_file("/home/driesj/data/tiling-grid-0/utm-tiling-grid-20km.gpkg",mask=countries)
+    df = df.cx[-14:35, 33:72] #rough EU bbox to get rid of overseas areas
+    return df

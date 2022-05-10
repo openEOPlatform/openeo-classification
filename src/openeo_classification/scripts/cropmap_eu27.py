@@ -9,7 +9,7 @@ from openeo.rest.mlmodel import MlModel
 
 from openeo_classification import features
 from openeo_classification.connection import terrascope_dev,creo_new
-from openeo_classification.job_management import run_jobs
+from openeo_classification.job_management import run_jobs, MultiBackendJobManager
 from openeo_classification.resources import read_json_resource
 
 logger = logging.getLogger("openeo_classification.cropmap")
@@ -29,12 +29,15 @@ configs = {
 }
 
 def produce_on_terrascope():
-    produce_eu27_croptype_map(provider="terrascope", year=2021, parallel_jobs=3, status_file="eu27_terrascope_all.csv")
+    produce_eu27_croptype_map(provider="terrascope", year=2021, parallel_jobs=3, status_file="eu27_2021_terrascope_klein.csv")
+
+def produce_on_sentinelhub():
+    produce_eu27_croptype_map(provider="sentinelhub", year=2021, parallel_jobs=8, status_file="eu27_2021_shub2.csv")
 
 def produce_on_creodias():
     produce_eu27_croptype_map(provider="creodias", year=2021, parallel_jobs=1, status_file="eu27_creodias.csv")
 
-def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 20, status_file = "eu27_terrascope_all.csv"):
+def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 20, status_file = "eu27_2021_terrascope_klein.csv"):
     """
     Script to start and monitor jobs for the EU27 croptype map project in openEO platform CCN.
     The script can use multiple backends, to maximize throughput. Jobs are tracked in a CSV file, upon failure, the script can resume
@@ -47,9 +50,14 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
     @return:
     """
 
-    terrascope_tiles = gpd.GeoDataFrame.from_features(read_json_resource("openeo_classification.scripts", "terrascope_data_2021.geojson"))
-    terrascope_tiles = terrascope_tiles[(terrascope_tiles.sentinel2count>70) & (terrascope_tiles.sentinel1count>80)]
-    terrascope_tiles = terrascope_tiles.sort_values(by=['cropland_perc'],ascending=False)
+    terrascope_tiles = gpd.GeoDataFrame.from_features(read_json_resource("openeo_classification.resources.grids", "cropland_20km_utm.geojson"))
+
+    if "terrascope" == provider:
+        terrascope_tiles = terrascope_tiles[(terrascope_tiles.sentinel2count>70) & (terrascope_tiles.sentinel1count>80)]
+    else:
+        terrascope_tiles = terrascope_tiles[(terrascope_tiles.sentinel2count <= 70) | (terrascope_tiles.sentinel1count <= 80)]
+    terrascope_tiles = terrascope_tiles.sort_values(by=["cropland_perc"], ascending=False)
+
 
     logger.info(f"Found {len(terrascope_tiles)} tiles to process using {provider}. Year: {year}")
 
@@ -64,18 +72,6 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
         return cube.reduce_dimension(dimension="bands", reducer=reducer, context=model)
 
 
-    cube = predict_catboost(features.load_features(year, connection, provider=provider),model="https://artifactory.vgt.vito.be/auxdata-public/openeo/catboost_test/ml_model_groot.json")
-
-    job_options = {
-        "driver-memory": "2G",
-        "driver-memoryOverhead": "2G",
-        "driver-cores": "1",
-        "executor-memory": "2G",
-        "executor-memoryOverhead": "2000m",
-        "executor-cores": "2",
-        "max-executors": "20"
-    } if provider != "creodias" else features.creo_job_options
-
     col_palette = [
         "#FFFFFF",
         "#CCFF33",
@@ -89,29 +85,46 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
     cmap = ListedColormap(col_palette)
     classification_colors = {x: cmap(x) for x in range(0, len(col_palette))}
 
-    def run(row):
+    def run(row,connection_provider,connection, provider):
         box = row.geometry.bounds
-        # box = [26.9997494741209501,43.3456518738389391,28.2532321823819395,44.2534175796591356]
 
-        cropland = row.cropland_perc
-        # cropland = 100.0
+        #cropland = row.cropland_perc
+        title = f"EU27 croptypes {row['name']} {provider}"
+        if(Path(title + ".tif").exists() or Path("creotesting/" + title ).exists()):
+            return None
+
+        job_options = {
+            "driver-memory": "2G",
+            "driver-memoryOverhead": "2G",
+            "driver-cores": "1",
+            "executor-memory": "3584m",
+            "executor-memoryOverhead": "2560m",
+            "executor-cores": "2",
+            "max-executors": "20"
+        } if provider != "creodias" else features.creo_job_options_production
+
+        cube = predict_catboost(features.load_features(year, connection_provider, provider=provider),
+                                model="https://raw.githubusercontent.com/openEOPlatform/openeo-classification/main/models/ml_model_groot.json")
         job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).linear_scale_range(0,20,0,20).create_job(out_format="GTiff",
-                                                                                              title=f"EU27 croptypes {row['name']} - {cropland:.1f}",
-                                                                                              description=f"Croptype map for 5 crops in EU27.",
-                                                                                              job_options=job_options, overviews="ALL",colormap=classification_colors)
+                                                                                                                              title=title,
+                                                                                                                              description=f"Croptype map for 5 crops in EU27.",
+                                                                                                                              job_options=job_options, overviews="ALL", colormap=classification_colors)
         job.start_job()
         job.logs()
         return job
 
-    run_jobs(
+    manager = MultiBackendJobManager()
+    manager.add_backend(provider, connection=terrascope_dev, parallel_jobs=8)
+    if(provider!="terrascope"):
+        manager.add_backend("creodias", connection=creo_new, parallel_jobs=4)
+
+    manager.run_jobs(
         df=terrascope_tiles,
         start_job=run,
-        outputFile=Path(status_file),
-        connection_provider=connection,
-        parallel_jobs=parallel_jobs,
+        output_file=Path(status_file)
     )
 
 
 
 if __name__ == '__main__':
-  fire.Fire(produce_on_terrascope)
+  fire.Fire(produce_on_sentinelhub())
