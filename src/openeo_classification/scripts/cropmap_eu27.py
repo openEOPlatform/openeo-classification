@@ -12,6 +12,7 @@ from openeo_classification.connection import terrascope_dev,creo_new
 from openeo_classification.job_management import run_jobs, MultiBackendJobManager
 from openeo_classification.resources import read_json_resource
 
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("openeo_classification.cropmap")
 
 configs = {
@@ -103,6 +104,7 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
             "max-executors": "20"
         } if provider != "creodias" else features.creo_job_options_production
 
+        print(f"submitting job to {provider}")
         cube = predict_catboost(features.load_features(year, connection_provider, provider=provider),
                                 model="https://raw.githubusercontent.com/openEOPlatform/openeo-classification/main/models/ml_model_groot.json")
         job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).linear_scale_range(0,20,0,20).create_job(out_format="GTiff",
@@ -114,9 +116,9 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
         return job
 
     manager = MultiBackendJobManager()
-    manager.add_backend(provider, connection=terrascope_dev, parallel_jobs=8)
+    manager.add_backend(provider, connection=terrascope_dev, parallel_jobs=4)
     if(provider!="terrascope"):
-        manager.add_backend("creodias", connection=creo_new, parallel_jobs=4)
+        manager.add_backend("creodias", connection=creo_new, parallel_jobs=10)
 
     manager.run_jobs(
         df=terrascope_tiles,

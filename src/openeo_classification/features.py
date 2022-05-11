@@ -1,7 +1,7 @@
 from datetime import timedelta, date
 
 from openeo.extra.spectral_indices.spectral_indices import compute_and_rescale_indices
-from openeo.processes import array_concat, ProcessBuilder, array_create
+from openeo.processes import array_concat, ProcessBuilder, array_create, if_, is_nodata
 
 from openeo_classification.connection import connection
 import scipy.signal
@@ -45,8 +45,8 @@ creo_job_options_production = {
         "driver-memoryOverhead": "2G",
         "driver-cores": "1",
         "executor-memory": "2000m",
-        "executor-memoryOverhead": "4500m",
-        "executor-cores": "4",
+        "executor-memoryOverhead": "4096m",
+        "executor-cores": "2",
         "executor-request-cores": "400m",
         "max-executors": "20"
     }
@@ -214,7 +214,7 @@ def sentinel1_features(start_date, end_date, connection_provider = connection, p
     return s1_dekad
 
 def cropland_mask(cube_to_mask, connection, provider="terrascope"):
-    if (provider.lower() == "terrascope"):
+    if (provider.lower() != "creodias"):
         wc = connection.load_collection("ESA_WORLDCOVER_10M_2020_V1", bands=["MAP"],
                                         temporal_extent=["2020-12-30", "2021-01-01"])
         worldcover_band = wc.band("MAP")
@@ -237,6 +237,10 @@ def compute_statistics(base_features, start_date, end_date, stepsize):
     """
     def computeStats(input_timeseries: ProcessBuilder, sample_stepsize, offset):
         tsteps = list([input_timeseries.array_element(offset + sample_stepsize * index) for index in range(0, 6)])
+        tsteps[1] = if_(is_nodata(tsteps[1]), tsteps[2], tsteps[1])
+        tsteps[4] = if_(is_nodata(tsteps[4]), tsteps[3], tsteps[4])
+        tsteps[0] = if_(is_nodata(tsteps[0]), tsteps[1], tsteps[0])
+        tsteps[5] = if_(is_nodata(tsteps[5]), tsteps[4], tsteps[5])
         return array_concat(
             array_concat(input_timeseries.quantiles(probabilities=[0.25, 0.5, 0.75]), input_timeseries.sd()), tsteps)
 
@@ -268,8 +272,8 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
     # if orbitDirection is not None:
     #     properties["orbitDirection"] = lambda p: p == orbitDirection
 
-    # if provider.upper()=="SENTINELHUB":
-    #     properties["polarization"] = lambda p: p == "DV"
+    if provider.upper()=="SENTINELHUB":
+         properties["polarization"] = lambda p: p == "DV"
 
     s1 = c.load_collection(s1_id,
                            temporal_extent=temp_ext_s1,
