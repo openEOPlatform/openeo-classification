@@ -174,7 +174,7 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
         mask = mask > 0.1
         s2 = s2.mask(mask)
     else:
-        s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL").filter_bands(s2.metadata.band_names[:-1])
+        s2 = s2.process("mask_scl_dilation", data=s2, scl_band_name="SCL", kernel2_size=101).filter_bands(s2.metadata.band_names[:-1])
 
     print(list(index_dict["indices"].keys()))
     indices = compute_and_rescale_indices(s2, index_dict, True).filter_bands(s2_list + list(index_dict["indices"].keys()))

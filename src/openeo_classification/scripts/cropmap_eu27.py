@@ -98,7 +98,7 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
             "driver-memory": "2G",
             "driver-memoryOverhead": "2G",
             "driver-cores": "1",
-            "executor-memory": "3584m",
+            "executor-memory": "4096m",
             "executor-memoryOverhead": "2560m",
             "executor-cores": "2",
             "max-executors": "20"
@@ -110,7 +110,7 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
         job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).linear_scale_range(0,20,0,20).create_job(out_format="GTiff",
                                                                                                                               title=title,
                                                                                                                               description=f"Croptype map for 5 crops in EU27.",
-                                                                                                                              job_options=job_options, overviews="ALL", colormap=classification_colors)
+                                                                                                                              job_options=job_options, overviews="ALL", colormap=classification_colors, overview_method="mode")
         job.start_job()
         job.logs()
         return job
