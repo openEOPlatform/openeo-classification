@@ -41,14 +41,14 @@ creo_job_options = {
     }
 
 creo_job_options_production = {
-        "driver-memory": "4G",
-        "driver-memoryOverhead": "2G",
+        "driver-memory": "1G",
+        "driver-memoryOverhead": "512m",
         "driver-cores": "1",
-        "executor-memory": "2000m",
-        "executor-memoryOverhead": "4096m",
+        "executor-memory": "2200m",
+        "executor-memoryOverhead": "3000m",
         "executor-cores": "2",
         "executor-request-cores": "400m",
-        "max-executors": "20"
+        "max-executors": "29"
     }
 
 def _calculate_intervals(start_date, end_date, stepsize = 10, overlap = 10):
@@ -81,7 +81,10 @@ def load_features(year, connection_provider = connection, provider = "Terrascope
 
     idx_features = compute_statistics(idx_dekad, start_date, end_date, stepsize=stepsize_s2).linear_scale_range(0,30000,0,30000)
 
-    s1_dekad = sentinel1_features(start_date, end_date, connection_provider, provider, processing_opts=processing_opts, orbitDirection="ASCENDING", sampling=sampling, stepsize=stepsize_s1)
+    orbitDir = "ASCENDING"
+    if provider.lower() == "creodias":
+        orbitDir = orbitDir.lower()
+    s1_dekad = sentinel1_features(start_date, end_date, connection_provider, provider, processing_opts=processing_opts, orbitDirection=orbitDir, sampling=sampling, stepsize=stepsize_s1)
     s1_dekad = s1_dekad.resample_cube_spatial(idx_dekad)
 
     s1_features = compute_statistics(s1_dekad, start_date, end_date, stepsize=stepsize_s1).linear_scale_range(0,30000,0,30000)
@@ -269,16 +272,21 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
     }
     # if relativeOrbit is not None:
     #     properties["relativeOrbitNumber"] = lambda p: p == relativeOrbit
-    # if orbitDirection is not None:
-    #     properties["orbitDirection"] = lambda p: p == orbitDirection
+    if orbitDirection is not None:
+         properties["orbitDirection"] = lambda p: p == orbitDirection
 
     if provider.upper()=="SENTINELHUB":
          properties["polarization"] = lambda p: p == "DV"
 
+    if provider.upper()=="CREODIAS":
+        #in 2021 the interpretation of timeliness changed
+        #https://sentinels.copernicus.eu/web/sentinel/-/copernicus-sentinel-1-nrt-3h-and-fast24h-products
+         properties["timeliness"] = lambda p: p == "NRT-3h|Fast-24h"
+
     s1 = c.load_collection(s1_id,
                            temporal_extent=temp_ext_s1,
-                           bands=["VH", "VV"]#,
-                           # properties=properties
+                           bands=["VH", "VV"],
+                           properties=properties
                            )
 
     if (provider.lower() == "creodias"):

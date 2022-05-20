@@ -74,14 +74,14 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
 
 
     col_palette = [
-        "#FFFFFF",
-        "#CCFF33",
-        "#66FF33",
-        "#FF9900",
-        "#CC9900",
-        "#990033",
-        "#FFFF00",
-        "#FF6699"
+        "#FF6699",#pink - other
+        "#FF9900",#orange - maize
+        "#66FF33",# green -winter cereals
+        "#CCFF33",# light green - spring cereals
+        "#FFFF00",# yellow - rapeseed
+        "#CC9900",# brown - potato
+        "#990033",# darkred - sugarbeet
+        "#FFFF4c"# darker yellow - grassland
     ]
     cmap = ListedColormap(col_palette)
     classification_colors = {x: cmap(x) for x in range(0, len(col_palette))}
@@ -98,8 +98,8 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
             "driver-memory": "2G",
             "driver-memoryOverhead": "2G",
             "driver-cores": "1",
-            "executor-memory": "4096m",
-            "executor-memoryOverhead": "2560m",
+            "executor-memory": "3g",
+            "executor-memoryOverhead": "1g",
             "executor-cores": "2",
             "max-executors": "20"
         } if provider != "creodias" else features.creo_job_options_production
