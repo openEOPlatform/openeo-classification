@@ -1,7 +1,5 @@
 import datetime
 import json
-import rasterio
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from openeo.processes import array_concat, ProcessBuilder, if_, is_nodata
 import xarray as xr
 
@@ -14,10 +12,12 @@ import rasterio
 import shapely
 import utm
 from shapely.geometry import Point
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 from openeo_classification.connection import connection
 from openeo_classification.features import sentinel2_features, compute_statistics, sentinel1_features
+
 
 lookup_lucas = {
     "A00": "Artificial land",
@@ -386,7 +386,7 @@ def calculate_validation_metrics(path_to_test_geojson='validation_prediction/y_t
 
     acc = accuracy_score(gdf["target"],gdf["predicted"])
     print("Accuracy on test set: "+str(acc)[0:5])
-    prec, rec, fscore, sup = precision_recall_fscore_support(gdf["target"],gdf["predicted"])
+    prec, rec, fscore, sup = precision_recall_fscore_support(gdf["target"],gdf["predicted"], zero_division=0)
 
     final_res = {
             "accuracy": acc,
@@ -395,4 +395,7 @@ def calculate_validation_metrics(path_to_test_geojson='validation_prediction/y_t
             "fscore": fscore.tolist(),
             "support": sup.tolist()
     }
+
+    ConfusionMatrixDisplay.from_predictions(gdf["target"],gdf["predicted"])
+    plt.show()
     return gdf, final_res
