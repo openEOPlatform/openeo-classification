@@ -3,7 +3,7 @@ from datetime import timedelta, date
 from openeo.extra.spectral_indices.spectral_indices import compute_and_rescale_indices
 from openeo.processes import array_concat, ProcessBuilder, array_create, if_, is_nodata
 
-from openeo_classification.connection import connection
+from connection import connection
 import scipy.signal
 import numpy as np
 
@@ -132,8 +132,11 @@ def sentinel2_features(start_date, end_date, connection_provider, provider, inde
         print(index_dict)
 
     temp_ext_s2 = [start_date.isoformat(), end_date.isoformat()]
+#     props = {
+#         "eo:cloud_cover": lambda v: v == 80
+#     }
     props = {
-        "eo:cloud_cover": lambda v: v == 80
+        "eo:cloud_cover": lambda v: v <= 80
     }
     s2_id = "SENTINEL2_L2A"
     if not luc:
@@ -270,7 +273,7 @@ def sentinel1_inputs(start_date, end_date, connection_provider, provider= "Terra
     properties = {
         #    "provider:backend": lambda v: v == "creo",
     }
-    # if relativeOrbit is not None:
+    # if relativeOrbit is not None: ### DEZE ZORGT VOOR VERSCHILLEN !
     #     properties["relativeOrbitNumber"] = lambda p: p == relativeOrbit
     if orbitDirection is not None:
          properties["orbitDirection"] = lambda p: p == orbitDirection
