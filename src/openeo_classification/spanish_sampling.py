@@ -50,7 +50,7 @@ crop_ids, other_crop_ids = sample.get_crop_codes()
 def run_jobs(df, fnp, features, year, output_job_stat_path, c):
     while True:
         print("run jobs")
-        if len(df[(df["status"]=="running") | (df["status"]=="queued") | (df["status"] == "created")]) < 1:
+        if len(df[(df["status"]=="running") | (df["status"]=="queued") | (df["status"] == "created")]) < 2:
             print("meer dan drie")
             print("Starting a job "+fnp)
             pols = gpd.read_file(fnp,crs=4326)
@@ -94,7 +94,7 @@ else:
     job_options = creo_job_options_production
 for year in years:
     for zone in zones:
-        c = lambda: openeo.connect("openeo.vito.be").authenticate_oidc()
+        c = lambda: openeo.connect("openeo-dev.vito.be").authenticate_oidc()
         features = load_features(year, connection_provider = c, provider = "sentinelhub", sampling=True,processing_opts=dict(tile_size=128))
         for fnp in glob.glob(str(fp / "sentinelhub" / ("*"+str(year)+"_zone"+str(zone)+"*"))):
             with open(fnp) as fn:
