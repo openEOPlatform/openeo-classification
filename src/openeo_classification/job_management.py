@@ -11,6 +11,7 @@ import geopandas as gpd
 import pandas as pd
 import requests
 from openeo import Connection
+from openeo.rest import OpenEoApiError
 from openeo.util import deep_get
 
 from openeo_classification.connection import connection, terrascope_dev
@@ -92,7 +93,7 @@ def update_statuses(status_df, connection_provider=connection):
         job = the_job.describe_job()
         usage = job.get('usage', {})
         if status_df.loc[i, "status"] == "running" and job["status"] == "finished":
-            the_job.download_result(job['title'] + ".tif")
+            the_job.get_results().download_files(target=  job['title'] )
         status_df.loc[i, "cpu"] = f"{deep_get(usage,'cpu','value',default=0)} {deep_get(usage,'cpu','unit',default='')}"
         status_df.loc[i, "status"] = job["status"]
         status_df.loc[i, "memory"] = f"{deep_get(usage,'memory','value',default=0)} {deep_get(usage,'memory','unit',default='')}"
@@ -232,19 +233,40 @@ class MultiBackendJobManager:
 
             time.sleep(self.poll_sleep)
 
+    def on_job_done(self,job):
+        """
+        Handles jobs that have finished. Can be overridden to provide custom behaviour.
+
+        Default implementation downloads the results into a folder containing the title.
+        @param job:
+        @return:
+        """
+        job_metadata = job.describe_job()
+        job.get_results().download_files(target= job_metadata['title'])
+
+
     def _update_statuses(self, df: pd.DataFrame):
         """Update status (and stats) of running jobs (in place)"""
         active = df.loc[(df.status == "created") | (df.status == "queued") | (df.status == "running")]
         for i in active.index:
             job_id = df.loc[i, 'id']
             backend_name = df.loc[i, "backend_name"]
-            con = self.backends[backend_name].get_connection()
-            job_metadata = con.job(job_id).describe_job()
-            _log.info(f"Status of job {job_id!r} (on backend {backend_name}) is {job_metadata['status']!r}")
-            df.loc[i, "status"] = job_metadata["status"]
-            df.loc[i, "cpu"] = _format_usage_stat(job_metadata, "cpu")
-            df.loc[i, "memory"] = _format_usage_stat(job_metadata, "memory")
-            df.loc[i, "duration"] = _format_usage_stat(job_metadata, "duration")
+
+            try:
+                con = self.backends[backend_name].get_connection()
+                the_job = con.job(job_id)
+                job_metadata = the_job.describe_job()
+                _log.info(f"Status of job {job_id!r} (on backend {backend_name}) is {job_metadata['status']!r}")
+                if df.loc[i, "status"] == "running" and job_metadata["status"] == "finished":
+                    self.on_job_done(the_job)
+
+                df.loc[i, "status"] = job_metadata["status"]
+                df.loc[i, "cpu"] = _format_usage_stat(job_metadata, "cpu")
+                df.loc[i, "memory"] = _format_usage_stat(job_metadata, "memory")
+                df.loc[i, "duration"] = _format_usage_stat(job_metadata, "duration")
+            except OpenEoApiError as e:
+                print(f"error for {backend_name}")
+                print(e)
 
 
 def _format_usage_stat(job_metadata: dict, field: str) -> str:
