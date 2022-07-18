@@ -261,7 +261,7 @@ class MultiBackendJobManager:
                     self.on_job_done(the_job)
 
                 df.loc[i, "status"] = job_metadata["status"]
-                for key in job_metadata.get("usage").keys():
+                for key in job_metadata.get("usage",{}).keys():
                     df.loc[i, key] = _format_usage_stat(job_metadata, key)
 
             except OpenEoApiError as e:
