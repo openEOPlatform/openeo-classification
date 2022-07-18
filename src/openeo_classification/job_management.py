@@ -261,9 +261,9 @@ class MultiBackendJobManager:
                     self.on_job_done(the_job)
 
                 df.loc[i, "status"] = job_metadata["status"]
-                df.loc[i, "cpu"] = _format_usage_stat(job_metadata, "cpu")
-                df.loc[i, "memory"] = _format_usage_stat(job_metadata, "memory")
-                df.loc[i, "duration"] = _format_usage_stat(job_metadata, "duration")
+                for key in job_metadata.get("usage").keys():
+                    df.loc[i, key] = _format_usage_stat(job_metadata, key)
+
             except OpenEoApiError as e:
                 print(f"error for {backend_name}")
                 print(e)
