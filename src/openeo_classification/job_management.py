@@ -225,7 +225,16 @@ class MultiBackendJobManager:
                                 if job:
                                     df.loc[i, "id"] = job.job_id
                                     with ignore_connection_errors(context="get status"):
-                                        df.loc[i, "status"] = job.status()
+                                        status = job.status()
+                                        df.loc[i, "status"] = status
+                                        if status == "created":
+                                            #start job if not yet done by callback
+                                            try:
+                                                job.start_job()
+                                                df.loc[i, "status"] = job.status()
+                                            except OpenEoApiError as e:
+                                                _log.error(e)
+                                                df.loc[i, "status"] = "start_failed"
                                 else:
                                     df.loc[i, "status"] = "skipped"
 

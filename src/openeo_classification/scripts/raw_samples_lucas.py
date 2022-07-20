@@ -3,7 +3,7 @@ from pathlib import Path
 
 from openeo_classification.features import creo_job_options,job_options
 from openeo_classification.lucas import split_lucas
-from openeo_classification.connection import creo,openeo,terrascope_dev
+from openeo_classification.connection import creo,openeo,terrascope_dev,openeo_platform
 from openeo_classification.job_management import MultiBackendJobManager
 
 import json
@@ -15,8 +15,7 @@ TIMERANGE_LUT = {
              'end': '2016-08-30'},
     '2017': {'start': '2016-09-01',
              'end': '2017-08-30'},
-    '2018': {'start': '2017-09-01',
-             'end': '2018-08-30'},
+    '2018': {'start': '2017-09-01','end': '2019-03-31'},
     '2019': {'start': '2018-09-01',
              'end': '2019-08-30'},
     '2020': {'start': '2019-09-01',
@@ -44,14 +43,14 @@ def get_input_TS(eoconn, time_range, geo):
                                            "B11", "B12", "B8A",
                                            "SCL"],
                                     properties=s2_properties)
-    S2_L2A._pg.arguments['featureflags'] = {"tilesize":64}
+    S2_L2A._pg.arguments['featureflags'] = {"tilesize":16}
     S2_L2A_masked = S2_L2A.process("mask_scl_dilation", data=S2_L2A,
                                    scl_band_name="SCL")
     s1properties = {"polarization": lambda p: p == "DV"}
     S1_GRD = eoconn.load_collection('SENTINEL1_GRD',
                                     bands=['VH', 'VV'],
                                     properties=s1properties)
-    S1_GRD._pg.arguments['featureflags'] = {"tilesize": 64}
+    S1_GRD._pg.arguments['featureflags'] = {"tilesize": 16}
     S1_GRD = S1_GRD.sar_backscatter(
         coefficient="gamma0-ellipsoid",
         local_incidence_angle=True)
@@ -83,19 +82,19 @@ def run(row,connection_provider,connection, provider):
         "executor-memory": "2G",
         "executor-memoryOverhead": "1G",
         "executor-cores": "2",
-        "max-executors": "15",
+        "max-executors": "40",
         "soft-errors": "true"
     }
 
     job = features.create_job(
-        title="Lucas {fnp}",
+        title=f"Lucas {fnp}",
         description=f"Sampling Lucas {fnp}",
         out_format="NetCDF",
         job_options=job_options,
     )
-
-    job.start_job()
+    print(job)
     return job
+
 
 
 output_file = Path("sampling_lucas.csv")
@@ -105,7 +104,7 @@ if not output_file.exists() or not output_file.is_file():
 
 
 manager = MultiBackendJobManager()
-manager.add_backend("terrascope", connection=terrascope_dev, parallel_jobs=1)
+manager.add_backend("terrascope", connection=openeo_platform, parallel_jobs=1)
 
 manager.run_jobs(
     df=dataframe,
