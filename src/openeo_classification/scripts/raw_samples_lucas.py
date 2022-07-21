@@ -1,5 +1,6 @@
 
 from pathlib import Path
+from shutil import copy2
 
 from openeo_classification.features import creo_job_options,job_options
 from openeo_classification.lucas import split_lucas
@@ -102,8 +103,19 @@ dataframe=None
 if not output_file.exists() or not output_file.is_file():
     dataframe = split_lucas()
 
+class CustomJobManager(MultiBackendJobManager):
 
-manager = MultiBackendJobManager()
+    def on_job_done(self, job, row):
+        super().on_job_done(job, row)
+        job_metadata = job.describe_job()
+        target_dir = job_metadata['title']
+        fnp = row['FILENAME']
+        #copy geometry to result directory
+        copy2(fnp,target_dir)
+
+
+
+manager = CustomJobManager()
 manager.add_backend("terrascope", connection=openeo_platform, parallel_jobs=1)
 
 manager.run_jobs(
