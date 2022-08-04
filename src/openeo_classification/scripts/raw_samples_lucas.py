@@ -2,6 +2,8 @@
 from pathlib import Path
 from shutil import copy2
 
+import fire
+
 from openeo_classification.features import creo_job_options,job_options
 from openeo_classification.lucas import split_lucas
 from openeo_classification.connection import creo,openeo,terrascope_dev,openeo_platform
@@ -25,11 +27,6 @@ TIMERANGE_LUT = {
              'end': '2021-08-30'}
 }
 
-COLUMNS_ORDER = ['VH', 'VV', 'angle',
-                 "B01", "B02", "B03", "B04",
-                 "B05", "B06", "B07", "B08",
-                 "B09", "B11", "B12", "B8A",
-                 'SCL']
 
 def get_input_TS(eoconn, time_range, geo):
     '''Function that will build the
@@ -53,7 +50,7 @@ def get_input_TS(eoconn, time_range, geo):
                                     properties=s1properties)
     S1_GRD._pg.arguments['featureflags'] = {"tilesize": 16}
     S1_GRD = S1_GRD.sar_backscatter(
-        coefficient="gamma0-ellipsoid",
+        coefficient="sigma0-ellipsoid",
         local_incidence_angle=True)
     S1_GRD = S1_GRD.apply(lambda x: 10 * x.log(base=10))
     S2_L2A_masked = S2_L2A_masked.resample_cube_spatial(S1_GRD)
@@ -62,7 +59,7 @@ def get_input_TS(eoconn, time_range, geo):
     return merged_cube.filter_temporal(
         time_range).aggregate_spatial(geo, reducer='mean')
 
-conn_provider = openeo
+
 def run(row,connection_provider,connection, provider):
 
     fnp = row['FILENAME']
@@ -98,10 +95,6 @@ def run(row,connection_provider,connection, provider):
 
 
 
-output_file = Path("sampling_lucas.csv")
-dataframe=None
-if not output_file.exists() or not output_file.is_file():
-    dataframe = split_lucas()
 
 class CustomJobManager(MultiBackendJobManager):
 
@@ -113,13 +106,29 @@ class CustomJobManager(MultiBackendJobManager):
         #copy geometry to result directory
         copy2(fnp,target_dir)
 
+def extract_samples(provider="sentinelhub", status_file="sampling_lucas.csv",parallel_jobs=1, working_dir=Path(".")):
+    output_file = working_dir / status_file
+    dataframe=None
+    if not output_file.exists() or not output_file.is_file():
+        dataframe = split_lucas(working_dir,["10","11","12"])
 
+    manager = CustomJobManager()
+    c = openeo_platform
+    if provider.upper() == "CREODIAS":
+        c = creo
+    manager.add_backend(provider, connection=c, parallel_jobs=parallel_jobs)
 
-manager = CustomJobManager()
-manager.add_backend("terrascope", connection=openeo_platform, parallel_jobs=1)
+    manager.run_jobs(
+        df=dataframe,
+        start_job=run,
+        output_file=output_file
+    )
 
-manager.run_jobs(
-    df=dataframe,
-    start_job=run,
-    output_file=output_file
-)
+def produce_on_sentinelhub():
+    extract_samples(provider="sentinelhub",  parallel_jobs=1, status_file="sampling_lucas.csv")
+
+def produce_on_creodias():
+    extract_samples(provider="creodias", parallel_jobs=1, status_file="sampling_lucas_creodias.csv", working_dir=Path('/home/driesj/python/openeo-classification/lucas_creo'))
+
+if __name__ == '__main__':
+  fire.Fire(produce_on_creodias())
