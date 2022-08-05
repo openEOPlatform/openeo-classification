@@ -28,7 +28,7 @@ TIMERANGE_LUT = {
 }
 
 
-def get_input_TS(eoconn, time_range, geo):
+def get_input_TS(eoconn, time_range, geo,provider):
     '''Function that will build the
     input timeseries for the model'''
 
@@ -49,12 +49,17 @@ def get_input_TS(eoconn, time_range, geo):
                                     bands=['VH', 'VV'],
                                     properties=s1properties)
     S1_GRD._pg.arguments['featureflags'] = {"tilesize": 16}
+    isCreo = (provider.upper() == "CREODIAS")
     S1_GRD = S1_GRD.sar_backscatter(
         coefficient="sigma0-ellipsoid",
-        local_incidence_angle=True)
+        local_incidence_angle=not isCreo,options={"implementation_version":"1","tile_size":16, "otb_memory":128,"debug":False})
     S1_GRD = S1_GRD.apply(lambda x: 10 * x.log(base=10))
-    S2_L2A_masked = S2_L2A_masked.resample_cube_spatial(S1_GRD)
-    merged_cube = S1_GRD.merge_cubes(S2_L2A_masked)
+
+    if isCreo:
+        #Creo has corrupt Sentinel-2 manifests, so we only extract sentinel-1 for now
+        merged_cube = S1_GRD
+    else:
+        merged_cube = S1_GRD.merge_cubes(S2_L2A_masked.resample_cube_spatial(S1_GRD))
 
     return merged_cube.filter_temporal(
         time_range).aggregate_spatial(geo, reducer='mean')
@@ -68,11 +73,12 @@ def run(row,connection_provider,connection, provider):
     time_end = TIMERANGE_LUT[year]['end']
     time_range = [time_start, time_end]
     pols = gpd.read_file(fnp)
+    filename = str(Path(fnp).name)
     pols["geometry"] = pols["geometry"].centroid
     pols = pols
-    features = get_input_TS(connection,geo=json.loads(pols.to_json()),time_range=time_range)
+    features = get_input_TS(connection,geo=json.loads(pols.to_json()),time_range=time_range,provider=provider)
 
-    print(f"Year: {year}; Crop ID: {fnp}")
+    print(f"Year: {year}; Crop ID: {filename}")
     job_options = {
         "driver-memory": "4G",
         "driver-memoryOverhead": "2G",
@@ -83,10 +89,12 @@ def run(row,connection_provider,connection, provider):
         "max-executors": "40",
         "soft-errors": "true"
     }
+    if provider.upper() == "CREODIAS":
+        job_options = creo_job_options
 
     job = features.create_job(
-        title=f"Lucas {fnp}",
-        description=f"Sampling Lucas {fnp}",
+        title=f"Lucas {filename} {provider}",
+        description=f"Sampling Lucas {filename}",
         out_format="NetCDF",
         job_options=job_options,
     )
@@ -99,12 +107,20 @@ def run(row,connection_provider,connection, provider):
 class CustomJobManager(MultiBackendJobManager):
 
     def on_job_done(self, job, row):
-        super().on_job_done(job, row)
-        job_metadata = job.describe_job()
-        target_dir = job_metadata['title']
         fnp = row['FILENAME']
+        base_dir = Path(fnp).parent
+        job_metadata = job.describe_job()
+        target_dir = base_dir / job_metadata['title']
+        job.get_results().download_files(target=target_dir)
+
+        with open(target_dir / f'job_{job.job_id}.json', 'w') as f:
+            json.dump(job_metadata, f, ensure_ascii=False)
+
         #copy geometry to result directory
-        copy2(fnp,target_dir)
+        try:
+            copy2(fnp,target_dir)
+        except:
+            print(f'COPY ERROR {fnp} {target_dir}')
 
 def extract_samples(provider="sentinelhub", status_file="sampling_lucas.csv",parallel_jobs=1, working_dir=Path(".")):
     output_file = working_dir / status_file
@@ -125,7 +141,7 @@ def extract_samples(provider="sentinelhub", status_file="sampling_lucas.csv",par
     )
 
 def produce_on_sentinelhub():
-    extract_samples(provider="sentinelhub",  parallel_jobs=1, status_file="sampling_lucas.csv")
+    extract_samples(provider="terrascope",  parallel_jobs=1, status_file="sampling_lucas.csv")
 
 def produce_on_creodias():
     extract_samples(provider="creodias", parallel_jobs=1, status_file="sampling_lucas_creodias.csv", working_dir=Path('/home/driesj/python/openeo-classification/lucas_creo'))
