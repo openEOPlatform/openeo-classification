@@ -131,8 +131,7 @@ def produce_eu27_croptype_map(provider="terrascope",year=2021, parallel_jobs = 2
 
         cube = predict_catboost(cube_raw,model="https://artifactory.vgt.vito.be/auxdata-public/openeo/catboost_test/ml_model_groot.json")
 
-        # cube = predict_catboost(features.load_features(year, connection_provider, provider=provider),
-                                # model="https://raw.githubusercontent.com/openEOPlatform/openeo-classification/main/models/ml_model_groot.json")
+        ## linear_scale_range for converting data type to smallest possible
         job = cube.filter_bbox(west=box[0], south=box[1], east=box[2], north=box[3]).linear_scale_range(0,20,0,20).create_job(out_format="GTiff",
                                                                                                                               title=title,
                                                                                                                               description=f"Croptype map for 5 crops in EU27.",
