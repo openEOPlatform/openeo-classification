@@ -11,7 +11,7 @@ def set_backend(url):
 
 @lru_cache(maxsize=None)
 def _cached_connection(url) -> Connection:
-    return openeo.connect(url)
+    return openeo.connect(url).authenticate_oidc()
 
 
 def connection(url = _default_url) -> Connection:
@@ -23,9 +23,8 @@ def connection(url = _default_url) -> Connection:
     @return:
     """
     c = _cached_connection(url)
-    c.authenticate_oidc()
     return c
 
 terrascope_dev = partial(connection,"openeo-dev.vito.be")
-creo = partial(connection,"openeo.creo.vito.be")
-creo_new = partial(connection,"https://openeo-dev.creo.vito.be/openeo/1.1.0/")
+openeo_platform = partial(connection,"openeo.cloud")
+creo = partial(connection,"openeo-dev.creo.vito.be")

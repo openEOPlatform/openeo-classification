@@ -1,6 +1,7 @@
 import collections
 import contextlib
 import datetime
+import json
 import logging
 import os
 import time
@@ -10,7 +11,7 @@ from typing import Callable, Union, Dict, Optional
 import geopandas as gpd
 import pandas as pd
 import requests
-from openeo import Connection
+from openeo import Connection, BatchJob
 from openeo.rest import OpenEoApiError
 from openeo.util import deep_get
 
@@ -225,7 +226,16 @@ class MultiBackendJobManager:
                                 if job:
                                     df.loc[i, "id"] = job.job_id
                                     with ignore_connection_errors(context="get status"):
-                                        df.loc[i, "status"] = job.status()
+                                        status = job.status()
+                                        df.loc[i, "status"] = status
+                                        if status == "created":
+                                            #start job if not yet done by callback
+                                            try:
+                                                job.start_job()
+                                                df.loc[i, "status"] = job.status()
+                                            except OpenEoApiError as e:
+                                                _log.error(e)
+                                                df.loc[i, "status"] = "start_failed"
                                 else:
                                     df.loc[i, "status"] = "skipped"
 
@@ -233,7 +243,7 @@ class MultiBackendJobManager:
 
             time.sleep(self.poll_sleep)
 
-    def on_job_done(self,job):
+    def on_job_done(self,job: BatchJob,row):
         """
         Handles jobs that have finished. Can be overridden to provide custom behaviour.
 
@@ -243,6 +253,8 @@ class MultiBackendJobManager:
         """
         job_metadata = job.describe_job()
         job.get_results().download_files(target= job_metadata['title'])
+        with open(Path(job_metadata['title']) / f'job_{job.job_id}.json', 'w') as f:
+            json.dump(job_metadata, f, ensure_ascii=False)
 
 
     def _update_statuses(self, df: pd.DataFrame):
@@ -258,12 +270,12 @@ class MultiBackendJobManager:
                 job_metadata = the_job.describe_job()
                 _log.info(f"Status of job {job_id!r} (on backend {backend_name}) is {job_metadata['status']!r}")
                 if df.loc[i, "status"] == "running" and job_metadata["status"] == "finished":
-                    self.on_job_done(the_job)
+                    self.on_job_done(the_job,df.loc[i])
 
                 df.loc[i, "status"] = job_metadata["status"]
-                df.loc[i, "cpu"] = _format_usage_stat(job_metadata, "cpu")
-                df.loc[i, "memory"] = _format_usage_stat(job_metadata, "memory")
-                df.loc[i, "duration"] = _format_usage_stat(job_metadata, "duration")
+                for key in job_metadata.get("usage",{}).keys():
+                    df.loc[i, key] = _format_usage_stat(job_metadata, key)
+
             except OpenEoApiError as e:
                 print(f"error for {backend_name}")
                 print(e)
