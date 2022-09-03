@@ -4,8 +4,6 @@ from openeo.extra.spectral_indices.spectral_indices import compute_and_rescale_i
 from openeo.processes import array_concat, ProcessBuilder, array_create, if_, is_nodata
 
 from openeo_classification.connection import connection
-import scipy.signal
-import numpy as np
 
 temporal_partition_options = {
         "indexreduction": 0,
