@@ -4,7 +4,6 @@ from openeo.processes import array_concat, ProcessBuilder, if_, is_nodata
 import xarray as xr
 
 import geopandas as gpd
-import ipywidgets as widgets
 import numpy as np
 import pandas as pd
 import pyproj
@@ -142,8 +141,14 @@ def load_lc_features(provider, feature_raster, start_date, end_date, stepsize_s2
     
 def get_starting_widgets():
     """
-    A helper function that initializes and displays a number of widgets used for determining the specifics of the model building process
+    A helper function that initializes and displays a number of widgets used for determining the specifics of the model building process.
+    This function is intended for use in a Jupyter notebook environment only.
+
+    TODO: encapsulate in a class that provides configuration for landcover, hide the actual widgets
+
     """
+
+    import ipywidgets as widgets
     train_test_split = widgets.FloatSlider(value=0.75, min=0, max=1.0, step=0.05)
     algorithm = widgets.Dropdown(options=['Random Forest'], value='Random Forest', description='Model:', disabled=True)
     nrtrees = widgets.IntText(value=200, description='Nr trees:')
@@ -159,17 +164,36 @@ def get_starting_widgets():
     nr_targets = widgets.IntSlider(value=8, min=2, max=37, step=1)
     nr_spp = widgets.IntSlider(value=2, min=1, max=6, step=1)
 
-    display(widgets.Box( [ widgets.Label(value='Train / test split:'), train_test_split ]))
-    display(algorithm)
-    display(widgets.Box( [ widgets.Label(value="Hyperparameters RF model:"), nrtrees ]))
-    display(widgets.Box( [ widgets.Label(value='S1 / S2 fusion:'), fusion_technique ]))
-    display(aoi_sampling)
-    display(aoi_inference)
-    # display(widgets.Box( [ widgets.Label(value='Include mixed pixels:'), include_mixed_pixels ]))
-    display(start_date)
-    display(end_date)
-    display(widgets.Box( [ widgets.Label(value='Select the amount of target classes:'), nr_targets ]))
-    display(widgets.Box( [ widgets.Label(value='Select the amount of times you want to point sample each reference polygon:'), nr_spp ]))
+    form_item_layout = widgets.Layout(
+        display='flex',
+        flex_flow='row',
+        justify_content='space-between'
+    )
+
+    form_items = [
+        widgets.Box([widgets.Label(value='Train / test split:'), train_test_split]),
+        algorithm,
+        widgets.Box([widgets.Label(value="Hyperparameters RF model:"), nrtrees]),
+        widgets.Box([widgets.Label(value='S1 / S2 fusion:'), fusion_technique]),
+        aoi_sampling,
+        aoi_inference,
+        start_date,
+        end_date,
+        widgets.Box([widgets.Label(value='Select the amount of target classes:'), nr_targets]),
+        widgets.Box([widgets.Label(value='Select the amount of times you want to point sample each reference polygon:'),
+                     nr_spp]),
+
+    ]
+
+    form = widgets.Box(form_items, layout=widgets.Layout(
+        display='flex',
+        flex_flow='column',
+        border='solid 2px',
+        align_items='stretch',
+        width='50%'
+    ))
+    display(form)
+
     return train_test_split, algorithm, nrtrees, fusion_technique, aoi_sampling, aoi_inference, start_date, end_date, nr_targets, nr_spp
 
 
@@ -177,6 +201,7 @@ def get_select_multiple():
     """
     The widget of the custom target classes
     """
+    import ipywidgets as widgets
     return widgets.SelectMultiple(
     options=['A00: Artificial land', 
              'A10: Roofed built-up areas',
