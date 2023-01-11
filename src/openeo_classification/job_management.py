@@ -256,6 +256,14 @@ class MultiBackendJobManager:
         with open(Path(job_metadata['title']) / f'job_{job.job_id}.json', 'w') as f:
             json.dump(job_metadata, f, ensure_ascii=False)
 
+    def on_job_error(self,job: BatchJob,row):
+        logs = job.logs()
+        error_logs = [l for l in logs if l.level.lower() == "error" ]
+        job_metadata = job.describe_job()
+
+        title = job_metadata['title']
+        if len(error_logs) > 0:
+            ( f'job_{title}_errors.json').write_text(json.dumps(error_logs, indent=2))
 
     def _update_statuses(self, df: pd.DataFrame):
         """Update status (and stats) of running jobs (in place)"""
@@ -271,6 +279,8 @@ class MultiBackendJobManager:
                 _log.info(f"Status of job {job_id!r} (on backend {backend_name}) is {job_metadata['status']!r}")
                 if df.loc[i, "status"] == "running" and job_metadata["status"] == "finished":
                     self.on_job_done(the_job,df.loc[i])
+                if df.loc[i, "status"] != "error" and job_metadata["status"] == "error":
+                    self.on_job_error(the_job,df.loc[i])
 
                 df.loc[i, "status"] = job_metadata["status"]
                 for key in job_metadata.get("usage",{}).keys():
