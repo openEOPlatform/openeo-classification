@@ -40,6 +40,7 @@ setup(
         "rasterio",
         "utm",
         "scikit-learn",
+        "matplotlib",
     ],
     tests_require=tests_require,
     extras_require={"dev": tests_require},
