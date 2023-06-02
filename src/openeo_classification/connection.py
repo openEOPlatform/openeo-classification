@@ -5,6 +5,7 @@ from openeo import Connection
 
 _default_url = "openeo-dev.vito.be"
 
+
 def set_backend(url):
     _default_url = url
 
@@ -14,7 +15,7 @@ def _cached_connection(url) -> Connection:
     return openeo.connect(url).authenticate_oidc()
 
 
-def connection(url = _default_url) -> Connection:
+def connection(url=_default_url) -> Connection:
     """
     Returns an authenticated openEO connection.
     Connects to openEO platform by default, but others can be used as well by specifying the url.
@@ -25,6 +26,8 @@ def connection(url = _default_url) -> Connection:
     c = _cached_connection(url)
     return c
 
-terrascope_dev = partial(connection,"openeo-dev.vito.be")
-openeo_platform = partial(connection,"openeo.cloud")
-creo = partial(connection,"openeo-dev.creo.vito.be")
+
+terrascope_dev = partial(connection, "openeo-dev.vito.be")
+openeo_platform = partial(connection, "openeo.cloud")
+creo = partial(connection, "openeo-dev.creo.vito.be")
+openeo_prod = partial(connection, "openeo.vito.be")
