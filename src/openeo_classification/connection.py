@@ -27,4 +27,4 @@ def connection(url = _default_url) -> Connection:
 
 terrascope_dev = partial(connection,"openeo-dev.vito.be")
 openeo_platform = partial(connection,"openeo.cloud")
-creo = partial(connection,"openeo-dev.creo.vito.be")
+creo = partial(connection,"openeo.dataspace.copernicus.eu")
