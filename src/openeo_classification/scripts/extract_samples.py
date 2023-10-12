@@ -79,22 +79,16 @@ def run(row):
     pols["geometry"] = pols["geometry"].centroid
     sampled_features = features.aggregate_spatial(json.loads(pols.to_json()), reducer="mean")
     print(f"Year: {year}; Crop ID: {fnp}")
-    errors = sampled_features.validate()
-    tiles = list(set([msg['message'][6:66] for msg in errors]))
-    print(len(tiles))
-    print(tiles)
-    if len(tiles) == 0:
-        job = sampled_features.send_job(
-            title="Punten extraheren {year} - {zone}",
-            description="Punten extraheren voor {year} - {zone} - {fnp} ",
-            out_format="CSV",
-            job_options=creo_job_options,
-        )
+    job = sampled_features.send_job(
+        title="Sample points {year} - {zone}",
+        description="Sample points for {year} - {zone} - {fnp} ",
+        out_format="CSV",
+        job_options=creo_job_options,
+    )
 
-        job.start_job()
-        return job
-    else:
-        return None
+    job.start_job()
+    return job
+
 
 
 run_jobs(df=dataframe, start_job=run, outputFile=Path("sampling_creo.csv"), connection_provider=creo, parallel_jobs=1)
